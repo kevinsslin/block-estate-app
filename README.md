@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BlockEstate
+
+BlockEstate is a decentralized real estate investment platform that enables fractional property ownership through blockchain technology. Users can invest in premium properties with minimal capital, enjoy high liquidity, and benefit from transparent property tokenization.
+
+## Features
+
+- 🏢 Tokenized Property Investment
+- 💱 Secondary Market Trading
+- 🔐 Secure Blockchain Transactions
+- 💰 Fractional Ownership
+- 📊 Real-time Portfolio Management
+- 🌐 Web3 Integration with RainbowKit
+
+## Tech Stack
+
+- **Framework:** Next.js 14 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **Components:** Radix UI
+- **Web3:** RainbowKit + wagmi
+- **Package Manager:** Bun
+- **Formatting:** Prettier
+- **Linting:** ESLint
+- **Git Hooks:** Husky + lint-staged
+
+## Prerequisites
+
+- [Bun](https://bun.sh) (Package Manager)
+- [Node.js](https://nodejs.org) (v18 or higher)
+- A [WalletConnect](https://cloud.walletconnect.com) Project ID
 
 ## Getting Started
 
-First, run the development server:
+1. Install Bun (if you haven't already):
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+   ```bash
+   curl -fsSL https://bun.sh/install | bash
+   ```
+
+2. Clone the repository:
+
+   ```bash
+   git clone repo_url
+   cd block-estate-app
+   ```
+
+3. Install dependencies:
+
+   ```bash
+   bun install
+   ```
+
+4. Set up your environment variables:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Then edit `.env.local` and add your WalletConnect Project ID and optional RPC URLs:
+
+   ```bash
+   # Required
+   NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_project_id_here
+
+   # Optional
+   NEXT_PUBLIC_SEPOLIA_RPC_URL=your_sepolia_rpc_url
+   ```
+
+5. Start the development server:
+   ```bash
+   bun dev
+   ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Development
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `bun dev` - Start development server
+- `bun build` - Build for production
+- `bun start` - Start production server
+- `bun lint` - Run ESLint
+- `bun format` - Format code with Prettier
 
-## Learn More
+## Git Workflow
 
-To learn more about Next.js, take a look at the following resources:
+The project uses Husky for Git hooks:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Pre-commit: Runs Prettier and ESLint on staged files
+- Commits will be blocked if there are any linting errors
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Contributing
 
-## Deploy on Vercel
+1. Create a new branch for your feature
+2. Make your changes
+3. Run `bun format` and `bun lint` to ensure code quality
+4. Create a Pull Request
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the [MIT License](LICENSE) - see the [LICENSE](LICENSE) file for details.

@@ -36,16 +36,6 @@ const steps = [
   },
 ];
 
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-    },
-  },
-};
-
 const item = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0 },
@@ -53,15 +43,14 @@ const item = {
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="bg-white py-20">
+    <section id="how-it-works" className="bg-gray-50 py-12 md:py-20">
       <div className="container mx-auto px-4">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
           style={{
-            fontSize: '2.25rem',
+            fontSize: 'clamp(1.75rem, 4vw, 2.25rem)',
             fontWeight: 'bold',
             marginBottom: '2.5rem',
             textAlign: 'center',
@@ -70,33 +59,29 @@ export function HowItWorksSection() {
         >
           How It Works
         </motion.h2>
-        <motion.div
-          variants={container}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true }}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '2rem',
-          }}
-        >
+        <div className="grid gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-4">
           {steps.map((step) => (
-            <motion.div key={step.id} variants={item}>
-              <Card className="transition-transform hover:scale-105">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-xl">
-                    <step.icon className="mr-3 h-8 w-8 text-blue-500" />
+            <motion.div
+              key={step.id}
+              variants={item}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+            >
+              <Card className="h-full transition-transform hover:scale-105">
+                <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <step.icon className="h-5 w-5 text-blue-500 sm:h-6 sm:w-6" />
                     {step.title}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">{step.description}</p>
+                <CardContent className="p-4 pt-2 text-sm text-gray-600 sm:p-6 sm:pt-3 sm:text-base">
+                  {step.description}
                 </CardContent>
               </Card>
             </motion.div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

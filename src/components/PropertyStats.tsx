@@ -9,49 +9,49 @@ interface PropertyStatsProps {
 
 export function PropertyStats({ property }: PropertyStatsProps) {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-4">
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">
-            <DollarSign className="mr-1 inline h-4 w-4" />
+        <CardHeader className="p-3 pb-1 sm:p-4 sm:pb-2">
+          <CardTitle className="text-xs font-medium sm:text-sm">
+            <DollarSign className="mr-1 inline h-3 w-3 sm:h-4 sm:w-4" />
             Property Value
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">${property.price.toLocaleString()}</div>
+        <CardContent className="p-3 sm:p-4">
+          <div className="text-lg font-bold sm:text-2xl">${property.price.toLocaleString()}</div>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">
-            <Home className="mr-1 inline h-4 w-4" />
+        <CardHeader className="p-3 pb-1 sm:p-4 sm:pb-2">
+          <CardTitle className="text-xs font-medium sm:text-sm">
+            <Home className="mr-1 inline h-3 w-3 sm:h-4 sm:w-4" />
             Tokens
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{property.tokens.toLocaleString()}</div>
+        <CardContent className="p-3 sm:p-4">
+          <div className="text-lg font-bold sm:text-2xl">{property.tokens.toLocaleString()}</div>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">
-            <DollarSign className="mr-1 inline h-4 w-4" />
+        <CardHeader className="p-3 pb-1 sm:p-4 sm:pb-2">
+          <CardTitle className="text-xs font-medium sm:text-sm">
+            <DollarSign className="mr-1 inline h-3 w-3 sm:h-4 sm:w-4" />
             Token Price
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">${property.tokenPrice}</div>
+        <CardContent className="p-3 sm:p-4">
+          <div className="text-lg font-bold sm:text-2xl">${property.tokenPrice}</div>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">
-            <TrendingUp className="mr-1 inline h-4 w-4" />
+        <CardHeader className="p-3 pb-1 sm:p-4 sm:pb-2">
+          <CardTitle className="text-xs font-medium sm:text-sm">
+            <TrendingUp className="mr-1 inline h-3 w-3 sm:h-4 sm:w-4" />
             Annual Return
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{property.annualReturn}%</div>
+        <CardContent className="p-3 sm:p-4">
+          <div className="text-lg font-bold sm:text-2xl">{property.annualReturn}%</div>
         </CardContent>
       </Card>
     </div>

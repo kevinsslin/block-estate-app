@@ -36,38 +36,43 @@ export function SecondaryMarketListings() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {listings.map((listing) => (
         <Card key={listing.id}>
-          <CardHeader className="pb-2">
-            <div className="flex items-start justify-between">
+          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <CardTitle className="text-lg">{listing.propertyName}</CardTitle>
-                <p className="text-sm text-muted-foreground">Token ID: {listing.tokenId}</p>
+                <CardTitle className="text-base sm:text-lg">{listing.propertyName}</CardTitle>
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  Token ID: {listing.tokenId}
+                </p>
               </div>
-              <Badge variant={listing.positive ? 'default' : 'secondary'}>
+              <Badge
+                variant={listing.positive ? 'default' : 'secondary'}
+                className="flex shrink-0 items-center gap-0.5"
+              >
                 {listing.positive ? (
-                  <ArrowUpRight className="h-4 w-4" />
+                  <ArrowUpRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 ) : (
-                  <ArrowDownRight className="h-4 w-4" />
+                  <ArrowDownRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 )}
                 {listing.change}%
               </Badge>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center">
-                <DollarSign className="mr-1 h-4 w-4 text-green-500" />
-                <span className="text-lg font-bold">${listing.price}</span>
-                <span className="ml-1 text-sm text-muted-foreground">per token</span>
+                <DollarSign className="mr-1 h-3 w-3 text-green-500 sm:h-4 sm:w-4" />
+                <span className="text-base font-bold sm:text-lg">${listing.price}</span>
+                <span className="ml-1 text-xs text-muted-foreground sm:text-sm">per token</span>
               </div>
               <div className="flex items-center">
-                <Percent className="mr-1 h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium">{listing.quantity} available</span>
+                <Percent className="mr-1 h-3 w-3 text-blue-500 sm:h-4 sm:w-4" />
+                <span className="text-xs font-medium sm:text-sm">{listing.quantity} available</span>
               </div>
             </div>
-            <Button className="mt-2 w-full">Select</Button>
+            <Button className="mt-3 w-full sm:mt-4">Select</Button>
           </CardContent>
         </Card>
       ))}

@@ -21,7 +21,7 @@ export function PropertyListings() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
+      <div className="flex min-h-[300px] items-center justify-center sm:min-h-[400px]">
         <LoadingState />
       </div>
     );
@@ -29,18 +29,22 @@ export function PropertyListings() {
 
   if (error) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
+      <div className="flex min-h-[300px] items-center justify-center sm:min-h-[400px]">
         <ErrorDisplay title="Failed to Load Properties" message={error.message} onRetry={execute} />
       </div>
     );
   }
 
   if (!properties || properties.length === 0) {
-    return <div className="text-center text-gray-600">No properties available at the moment.</div>;
+    return (
+      <div className="min-h-[300px] text-center text-gray-600 sm:min-h-[400px]">
+        No properties available at the moment.
+      </div>
+    );
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
       {properties.map((property) => (
         <Card key={property.id} className="flex flex-col">
           <Link href={`/property/${property.id}`}>
@@ -49,13 +53,13 @@ export function PropertyListings() {
               alt={property.title}
               width={600}
               height={400}
-              className="h-48 w-full object-cover"
+              className="h-40 w-full object-cover sm:h-48"
             />
           </Link>
           <div className="flex flex-grow flex-col">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <CardTitle className="line-clamp-2 h-[56px] text-lg">
+            <CardHeader className="p-4 sm:p-6">
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="line-clamp-2 h-[48px] text-base sm:h-[56px] sm:text-lg">
                   <Link
                     href={`/property/${property.id}`}
                     className="transition-colors hover:text-blue-600"
@@ -63,29 +67,35 @@ export function PropertyListings() {
                     {property.title}
                   </Link>
                 </CardTitle>
-                <Badge variant="secondary">{property.type}</Badge>
+                <Badge variant="secondary" className="shrink-0">
+                  {property.type}
+                </Badge>
               </div>
-              <div className="flex items-center text-sm text-muted-foreground">
-                <MapPin className="mr-1 h-4 w-4" />
+              <div className="flex items-center text-xs text-muted-foreground sm:text-sm">
+                <MapPin className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
                 {property.location}
               </div>
             </CardHeader>
-            <CardContent className="flex-grow">
+            <CardContent className="flex-grow p-4 sm:p-6">
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center">
-                  <Home className="mr-1 h-4 w-4 text-blue-500" />
-                  <span className="text-sm font-medium">
+                  <Home className="mr-1 h-3 w-3 text-blue-500 sm:h-4 sm:w-4" />
+                  <span className="text-xs font-medium sm:text-sm">
                     {property.tokens.toLocaleString()} Tokens
                   </span>
                 </div>
                 <div className="flex items-center">
-                  <DollarSign className="mr-1 h-4 w-4 text-green-500" />
-                  <span className="text-sm font-medium">${property.tokenPrice}/token</span>
+                  <DollarSign className="mr-1 h-3 w-3 text-green-500 sm:h-4 sm:w-4" />
+                  <span className="text-xs font-medium sm:text-sm">
+                    ${property.tokenPrice}/token
+                  </span>
                 </div>
               </div>
-              <div className="text-lg font-bold">${property.price.toLocaleString()}</div>
+              <div className="text-base font-bold sm:text-lg">
+                ${property.price.toLocaleString()}
+              </div>
             </CardContent>
-            <CardFooter className="mt-auto">
+            <CardFooter className="mt-auto p-4 sm:p-6">
               <Button asChild className="w-full">
                 <Link href={`/property/${property.id}`}>View Details</Link>
               </Button>

@@ -20,21 +20,26 @@ export function TokenSwapInterface() {
 
   return (
     <Card className="mx-auto w-full max-w-md">
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold">Swap Tokens</CardTitle>
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="text-xl font-bold sm:text-2xl">Swap Tokens</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 p-4 sm:p-6">
         <div className="space-y-2">
           <div className="flex justify-between">
-            <label htmlFor="from-amount" className="text-sm font-medium">
+            <label htmlFor="from-amount" className="text-xs font-medium sm:text-sm">
               From
             </label>
-            <span className="text-sm text-muted-foreground">Balance: 1000 USDC</span>
+            <span className="text-xs text-muted-foreground sm:text-sm">Balance: 1000 USDC</span>
           </div>
-          <div className="flex space-x-2">
-            <Input id="from-amount" type="number" placeholder="0.0" className="flex-grow" />
+          <div className="flex gap-2">
+            <Input
+              id="from-amount"
+              type="number"
+              placeholder="0.0"
+              className="flex-grow text-sm sm:text-base"
+            />
             <Select value={fromToken} onValueChange={setFromToken}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[100px] text-sm sm:w-[120px] sm:text-base">
                 <SelectValue placeholder="Select token" />
               </SelectTrigger>
               <SelectContent>
@@ -45,23 +50,29 @@ export function TokenSwapInterface() {
           </div>
         </div>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center py-2">
           <Button variant="ghost" size="icon" className="rounded-full">
-            <ArrowDown className="h-6 w-6" />
+            <ArrowDown className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
         </div>
 
         <div className="space-y-2">
           <div className="flex justify-between">
-            <label htmlFor="to-amount" className="text-sm font-medium">
+            <label htmlFor="to-amount" className="text-xs font-medium sm:text-sm">
               To
             </label>
-            <span className="text-sm text-muted-foreground">Balance: 0 LUXY-001</span>
+            <span className="text-xs text-muted-foreground sm:text-sm">Balance: 0 LUXY-001</span>
           </div>
-          <div className="flex space-x-2">
-            <Input id="to-amount" type="number" placeholder="0.0" className="flex-grow" readOnly />
+          <div className="flex gap-2">
+            <Input
+              id="to-amount"
+              type="number"
+              placeholder="0.0"
+              className="flex-grow text-sm sm:text-base"
+              readOnly
+            />
             <Select value={toToken} onValueChange={setToToken}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[100px] text-sm sm:w-[120px] sm:text-base">
                 <SelectValue placeholder="Select token" />
               </SelectTrigger>
               <SelectContent>
@@ -73,13 +84,13 @@ export function TokenSwapInterface() {
           </div>
         </div>
 
-        <div className="text-sm text-muted-foreground">
+        <div className="space-y-1 text-xs text-muted-foreground sm:text-sm">
           <p>1 LUXY-001 = 50 USDC</p>
           <p>Max slippage: 0.5%</p>
         </div>
       </CardContent>
-      <CardFooter>
-        <Button className="w-full">Swap Tokens</Button>
+      <CardFooter className="p-4 sm:p-6">
+        <Button className="w-full py-5 text-sm sm:py-6 sm:text-base">Swap Tokens</Button>
       </CardFooter>
     </Card>
   );

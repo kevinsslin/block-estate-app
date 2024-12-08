@@ -1,76 +1,47 @@
 'use client';
 
-import type { FormEvent } from 'react';
 import { motion } from 'framer-motion';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export function NewsletterSection() {
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    // TODO: Handle newsletter subscription
-  };
-
   return (
-    <section className="bg-blue-50 py-20">
-      <div className="container mx-auto px-4 text-center">
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          style={{
-            fontSize: '2.25rem',
-            fontWeight: 'bold',
-            color: '#1e3a8a',
-            marginBottom: '1.5rem',
-          }}
-        >
-          Stay Updated
-        </motion.h2>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          style={{
-            fontSize: '1.25rem',
-            color: '#4b5563',
-            marginBottom: '2.5rem',
-            maxWidth: '32rem',
-            margin: '0 auto 2.5rem',
-          }}
-        >
-          Subscribe to our newsletter for the latest property listings, market insights, and
-          investment opportunities.
-        </motion.p>
+    <section className="bg-blue-900 py-12 text-white md:py-20">
+      <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.4 }}
           style={{
-            display: 'flex',
-            maxWidth: '28rem',
+            maxWidth: '42rem',
             margin: '0 auto',
+            textAlign: 'center',
           }}
         >
-          <form onSubmit={handleSubmit} className="flex w-full">
+          <h2 className="mb-3 text-2xl font-bold sm:mb-4 sm:text-3xl md:text-4xl">
+            Stay Updated with BlockEstate
+          </h2>
+          <p className="mb-6 text-sm text-blue-200 sm:text-base md:mb-8">
+            Subscribe to our newsletter for the latest property listings, market insights, and
+            investment opportunities.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-0">
             <Input
               type="email"
               placeholder="Enter your email"
-              className="mr-2 flex-grow py-6 text-lg"
-              required
+              className="border-blue-700 bg-blue-800 text-white placeholder:text-blue-300 sm:rounded-r-none"
             />
             <Button
-              type="submit"
               size="lg"
-              className="bg-blue-600 px-8 text-lg text-white hover:bg-blue-700"
+              className="bg-yellow-400 text-blue-900 hover:bg-yellow-300 sm:rounded-l-none"
             >
               Subscribe
             </Button>
-          </form>
+          </div>
+          <p className="mt-3 text-xs text-blue-300 sm:text-sm">
+            We respect your privacy. Unsubscribe at any time.
+          </p>
         </motion.div>
       </div>
     </section>

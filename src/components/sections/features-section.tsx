@@ -27,38 +27,21 @@ const features = [
   },
 ];
 
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-    },
-  },
-};
-
 const item = {
   hidden: { opacity: 0, y: 20 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.5,
-    },
-  },
+  show: { opacity: 1, y: 0 },
 };
 
 export function FeaturesSection() {
   return (
-    <section className="py-20">
+    <section className="py-12 md:py-20">
       <div className="container mx-auto px-4">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
           style={{
-            fontSize: '2.25rem',
+            fontSize: 'clamp(1.75rem, 4vw, 2.25rem)',
             fontWeight: 'bold',
             marginBottom: '2.5rem',
             textAlign: 'center',
@@ -67,17 +50,14 @@ export function FeaturesSection() {
         >
           Why Choose BlockEstate?
         </motion.h2>
-        <motion.div
-          variants={container}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true }}
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '3rem' }}
-        >
+        <div className="grid gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3">
           {features.map((feature) => (
             <motion.div
               key={feature.id}
               variants={item}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
               whileHover={{
                 scale: 1.05,
                 transition: { duration: 0.2 },
@@ -88,33 +68,26 @@ export function FeaturesSection() {
                 alignItems: 'center',
                 textAlign: 'center',
                 backgroundColor: 'white',
-                padding: '2rem',
+                padding: '1rem',
                 borderRadius: '0.5rem',
-                boxShadow:
-                  '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
               }}
             >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
+                style={{
+                  marginBottom: '1rem',
+                }}
               >
-                <feature.icon
-                  style={{
-                    width: '4rem',
-                    height: '4rem',
-                    color: '#3b82f6',
-                    marginBottom: '1.5rem',
-                  }}
-                />
+                <feature.icon className="h-10 w-10 text-blue-500 sm:h-12 sm:w-12" />
               </motion.div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>
-                {feature.title}
-              </h3>
-              <p style={{ color: '#4b5563' }}>{feature.description}</p>
+              <h3 className="mb-2 text-lg font-semibold sm:mb-4 sm:text-xl">{feature.title}</h3>
+              <p className="text-sm text-gray-600 sm:text-base">{feature.description}</p>
             </motion.div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

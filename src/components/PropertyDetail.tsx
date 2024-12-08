@@ -37,49 +37,57 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="container mx-auto px-4 py-12">
-        <div className="grid gap-8 md:grid-cols-2">
+      <main className="container mx-auto px-4 py-6 sm:py-12">
+        <div className="grid gap-6 md:grid-cols-2 md:gap-8">
           <div>
             <Image
               src={property.image}
               alt={property.title}
               width={600}
               height={400}
-              className="h-[400px] w-full rounded-lg object-cover"
+              className="h-[250px] w-full rounded-lg object-cover sm:h-[400px]"
             />
           </div>
           <div>
-            <h1 className="mb-4 text-4xl font-bold text-blue-900">{property.title}</h1>
-            <div className="mb-4 flex items-center text-gray-600">
-              <MapPin className="mr-2 h-5 w-5" />
+            <h1 className="mb-3 text-2xl font-bold text-blue-900 sm:mb-4 sm:text-4xl">
+              {property.title}
+            </h1>
+            <div className="mb-3 flex items-center text-sm text-gray-600 sm:mb-4 sm:text-base">
+              <MapPin className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
               {property.location}
             </div>
-            <Badge className="mb-4">{property.type}</Badge>
-            <p className="mb-6 text-gray-600">{property.description}</p>
+            <Badge className="mb-3 sm:mb-4">{property.type}</Badge>
+            <p className="mb-4 text-sm text-gray-600 sm:mb-6 sm:text-base">
+              {property.description}
+            </p>
 
             <PropertyStats property={property} />
 
-            <Card className="mb-6 mt-6">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Token Sale Progress</CardTitle>
+            <Card className="mb-4 mt-4 sm:mb-6 sm:mt-6">
+              <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">
+                  Token Sale Progress
+                </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-6">
                 <Progress value={(property.tokensSold / property.tokens) * 100} className="mb-2" />
-                <div className="flex justify-between text-sm text-gray-600">
+                <div className="flex justify-between text-xs text-gray-600 sm:text-sm">
                   <span>{property.tokensSold.toLocaleString()} sold</span>
                   <span>{(property.tokens - property.tokensSold).toLocaleString()} remaining</span>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="mb-6 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                <Calendar className="mr-1 inline h-4 w-4" />
+            <div className="flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-gray-600 sm:text-sm">
+                <Calendar className="mr-1 inline h-3 w-3 sm:h-4 sm:w-4" />
                 Last valuation: {property.lastValuation}
               </div>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button size="lg">Invest Now</Button>
+                  <Button size="lg" className="w-full sm:w-auto">
+                    Invest Now
+                  </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">
                   <DialogHeader>

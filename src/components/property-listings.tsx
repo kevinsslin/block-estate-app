@@ -2,44 +2,43 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { DollarSign, Home, MapPin } from 'lucide-react';
 
+import { ErrorDisplay } from '@/components/ErrorDisplay';
+import { LoadingState } from '@/components/LoadingState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-
-const properties = [
-  {
-    id: 1,
-    title: 'Luxury Apartment in Downtown',
-    location: 'New York, NY',
-    price: 500000,
-    tokens: 10000,
-    tokenPrice: 50,
-    image: '/placeholder.svg?height=400&width=600',
-    type: 'Residential',
-  },
-  {
-    id: 2,
-    title: 'Commercial Office Space',
-    location: 'San Francisco, CA',
-    price: 2000000,
-    tokens: 20000,
-    tokenPrice: 100,
-    image: '/placeholder.svg?height=400&width=600',
-    type: 'Commercial',
-  },
-  {
-    id: 3,
-    title: 'Beachfront Villa',
-    location: 'Miami, FL',
-    price: 1500000,
-    tokens: 15000,
-    tokenPrice: 100,
-    image: '/placeholder.svg?height=400&width=600',
-    type: 'Residential',
-  },
-];
+import { useAsync } from '@/hooks/useAsync';
+import { getAllProperties } from '@/services';
+import type { Property } from '@/types/property';
 
 export function PropertyListings() {
+  const {
+    data: properties,
+    loading,
+    error,
+    execute,
+  } = useAsync<Property[]>(getAllProperties, true);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <LoadingState />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <ErrorDisplay title="Failed to Load Properties" message={error.message} onRetry={execute} />
+      </div>
+    );
+  }
+
+  if (!properties || properties.length === 0) {
+    return <div className="text-center text-gray-600">No properties available at the moment.</div>;
+  }
+
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {properties.map((property) => (

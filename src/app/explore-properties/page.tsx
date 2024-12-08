@@ -1,3 +1,5 @@
+'use client';
+
 import { PropertyFilters } from '@/components/property-filters';
 import { PropertyListings } from '@/components/property-listings';
 

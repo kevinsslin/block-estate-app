@@ -2,9 +2,13 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Calendar, DollarSign, Home, MapPin, TrendingUp } from 'lucide-react';
+import { notFound } from 'next/navigation';
+import { Calendar, MapPin } from 'lucide-react';
 
+import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { Header } from '@/components/header';
+import { LoadingState } from '@/components/LoadingState';
+import { PropertyStats } from '@/components/PropertyStats';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,68 +23,44 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-
-// This would typically come from a database or API
-const properties = [
-  {
-    id: 1,
-    title: 'Luxury Apartment in Downtown',
-    location: 'New York, NY',
-    price: 500000,
-    tokens: 10000,
-    tokenPrice: 50,
-    image: '/placeholder.svg?height=400&width=600',
-    type: 'Residential',
-    description:
-      'Experience urban living at its finest with this luxurious downtown apartment. Featuring stunning city views, high-end finishes, and access to premium amenities.',
-    tokensSold: 7500,
-    annualReturn: 8.5,
-    lastValuation: '2023-05-15',
-  },
-  {
-    id: 2,
-    title: 'Commercial Office Space',
-    location: 'San Francisco, CA',
-    price: 2000000,
-    tokens: 20000,
-    tokenPrice: 100,
-    image: '/placeholder.svg?height=400&width=600',
-    type: 'Commercial',
-    description:
-      "Prime commercial office space in the heart of San Francisco's business district. Ideal for startups or established companies looking for a prestigious address.",
-    tokensSold: 15000,
-    annualReturn: 7.2,
-    lastValuation: '2023-06-01',
-  },
-  {
-    id: 3,
-    title: 'Beachfront Villa',
-    location: 'Miami, FL',
-    price: 1500000,
-    tokens: 15000,
-    tokenPrice: 100,
-    image: '/placeholder.svg?height=400&width=600',
-    type: 'Residential',
-    description:
-      "Escape to this stunning beachfront villa in Miami. With direct beach access, a private pool, and luxurious interiors, it's the perfect vacation home or investment property.",
-    tokensSold: 10000,
-    annualReturn: 9.1,
-    lastValuation: '2023-05-30',
-  },
-];
+import { useAsync } from '@/hooks/useAsync';
+import { getPropertyById } from '@/services/api';
 
 export default function PropertyPage({ params }: { params: { id: string } }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [investmentAmount, setInvestmentAmount] = useState('');
 
-  const property = properties.find((p) => p.id === Number.parseInt(params.id, 10));
+  const {
+    data: property,
+    loading,
+    error,
+    execute,
+  } = useAsync(() => getPropertyById(params.id), true, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <LoadingState />
+      </div>
+    );
+  }
+
+  if (error) {
+    if (error.message === 'Property not found') {
+      notFound();
+    }
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <ErrorDisplay title="Failed to Load Property" message={error.message} onRetry={execute} />
+      </div>
+    );
+  }
 
   if (!property) {
-    return <div>Property not found</div>;
+    notFound();
   }
 
   const handleInvest = () => {
-    // Here you would typically handle the investment logic
     console.log(`Investing ${investmentAmount} in ${property.title}`);
     setIsDialogOpen(false);
     setInvestmentAmount('');
@@ -108,53 +88,10 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
             </div>
             <Badge className="mb-4">{property.type}</Badge>
             <p className="mb-6 text-gray-600">{property.description}</p>
-            <div className="mb-6 grid grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    <DollarSign className="mr-1 inline h-4 w-4" />
-                    Property Value
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">${property.price.toLocaleString()}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    <Home className="mr-1 inline h-4 w-4" />
-                    Tokens
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{property.tokens.toLocaleString()}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    <DollarSign className="mr-1 inline h-4 w-4" />
-                    Token Price
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">${property.tokenPrice}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    <TrendingUp className="mr-1 inline h-4 w-4" />
-                    Annual Return
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{property.annualReturn}%</div>
-                </CardContent>
-              </Card>
-            </div>
-            <Card className="mb-6">
+
+            <PropertyStats property={property} />
+
+            <Card className="mb-6 mt-6">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Token Sale Progress</CardTitle>
               </CardHeader>
@@ -166,6 +103,7 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
                 </div>
               </CardContent>
             </Card>
+
             <div className="mb-6 flex items-center justify-between">
               <div className="text-sm text-gray-600">
                 <Calendar className="mr-1 inline h-4 w-4" />

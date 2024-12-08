@@ -23,17 +23,19 @@ export function Header() {
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b bg-white">
       <div className="container mx-auto flex items-center justify-between px-4 py-2">
-        <Link href="/" className="text-2xl font-bold text-blue-900">
+        <Link href="/" className="text-xl font-bold text-blue-900 sm:text-2xl">
           BlockEstate
         </Link>
 
         {/* Mobile Menu */}
-        <div className="flex items-center gap-4 md:hidden">
-          <ConnectButton />
+        <div className="flex items-center gap-2 md:hidden">
+          <div className="scale-90">
+            <ConnectButton />
+          </div>
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-6 w-6" />
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">

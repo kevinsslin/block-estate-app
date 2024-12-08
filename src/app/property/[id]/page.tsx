@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Calendar, MapPin } from 'lucide-react';
@@ -24,9 +24,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useAsync } from '@/hooks/useAsync';
-import { getPropertyById } from '@/services/api';
+import { getPropertyById } from '@/services';
+import type { Property } from '@/types/property';
 
-export default function PropertyPage({ params }: { params: { id: string } }) {
+type Params = Promise<{ id: string }>;
+
+export default function PropertyPage({ params }: { params: Params }) {
+  const { id } = use(params);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [investmentAmount, setInvestmentAmount] = useState('');
 
@@ -35,7 +39,7 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
     loading,
     error,
     execute,
-  } = useAsync(() => getPropertyById(params.id), true, [params.id]);
+  } = useAsync<Property>(() => getPropertyById(id), true, [id]);
 
   if (loading) {
     return (

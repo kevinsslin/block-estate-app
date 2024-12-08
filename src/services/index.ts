@@ -26,3 +26,6 @@ export async function getPropertyById(id: string): Promise<Property> {
   const response = await fetch(`/api/properties/${id}`);
   return handleResponse<Property>(response);
 }
+
+// Export error type for external use
+export type { ApiError };

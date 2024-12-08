@@ -84,21 +84,24 @@ export default function MyPropertiesPage() {
                   <div className="flex items-center justify-between">
                     <Badge
                       variant={
-                        property.currentValue >= property.purchaseValue ? 'success' : 'destructive'
+                        property.currentValue >= property.purchaseValue ? 'default' : 'destructive'
                       }
                     >
-                      {property.currentValue >= property.purchaseValue ? 'Profit' : 'Loss'}:
-                      {(
+                      {property.currentValue >= property.purchaseValue ? '+' : '-'}
+                      {Math.abs(
                         ((property.currentValue - property.purchaseValue) /
                           property.purchaseValue) *
-                        100
+                          100
                       ).toFixed(2)}
                       %
                     </Badge>
-                    <Button asChild>
-                      <Link href={`/property/${property.id}`}>View Details</Link>
-                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      Last updated: {new Date().toLocaleDateString()}
+                    </p>
                   </div>
+                  <Button asChild>
+                    <Link href={`/property/${property.id}`}>View Details</Link>
+                  </Button>
                 </div>
               </CardContent>
             </Card>

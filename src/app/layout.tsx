@@ -1,16 +1,14 @@
-import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-
-import './globals.css';
 
 import { Footer } from '@/components/footer';
 import { Header } from '@/components/header';
+import { Providers } from '@/app/providers';
 
-import { Providers } from './providers';
+import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'BlockEstate',
   description: 'Tokenized Real Estate Investment Platform',
 };
@@ -20,9 +18,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={`${inter.className} flex min-h-screen flex-col`}>
         <Providers>
-          <Header />
-          <main className="flex-grow pt-16">{children}</main>
-          <Footer />
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <main className="flex-grow pt-16">{children}</main>
+            <Footer />
+          </div>
         </Providers>
       </body>
     </html>

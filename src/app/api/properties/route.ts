@@ -1,5 +1,7 @@
-// This would typically come from a database
-const properties = [
+import type { Property } from '@/types/property';
+
+// Mock data for development
+const mockProperties: Property[] = [
   {
     id: 1,
     title: 'Luxury Apartment in Downtown',
@@ -47,6 +49,40 @@ const properties = [
   },
 ];
 
-export async function GET() {
-  return Response.json(properties);
+// GET /api/properties - Get all properties
+export async function GET(request: Request) {
+  // Get the pathname from the request URL
+  const pathname = new URL(request.url).pathname;
+  const isDetailRequest = pathname.match(/\/api\/properties\/\d+$/);
+
+  try {
+    if (isDetailRequest) {
+      // Extract ID from pathname
+      const id = Number(pathname.split('/').pop());
+      const property = mockProperties.find((p) => p.id === id);
+
+      if (!property) {
+        return new Response('Property not found', { status: 404 });
+      }
+
+      return Response.json(property);
+    }
+
+    // Return all properties
+    return Response.json(mockProperties);
+  } catch (error) {
+    console.error('Error in GET /api/properties:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Internal Server Error',
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  }
 }

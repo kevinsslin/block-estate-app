@@ -7,27 +7,19 @@ import { mainnet, sepolia } from 'wagmi/chains';
 
 import '@rainbow-me/rainbowkit/styles.css';
 
-import type { ReactNode } from 'react';
-
-const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID;
-
-if (!projectId) {
-  console.warn('Missing NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID');
+interface ProvidersProps {
+  children: React.ReactElement | React.ReactElement[];
 }
-
-const config = getDefaultConfig({
-  appName: 'BlockEstate',
-  projectId: projectId ?? '',
-  chains: [mainnet, sepolia],
-});
 
 const queryClient = new QueryClient();
 
-interface ProvidersProps {
-  children: ReactNode;
-}
+const config = getDefaultConfig({
+  appName: 'BlockEstate',
+  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID ?? '',
+  chains: [mainnet, sepolia],
+});
 
-export function Providers({ children }: ProvidersProps): JSX.Element {
+export function Providers({ children }: ProvidersProps) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>

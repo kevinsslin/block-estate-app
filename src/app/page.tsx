@@ -4,10 +4,16 @@ import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { LoadingState } from '@/components/LoadingState';
 import { PropertyCard } from '@/components/PropertyCard';
 import { useAsync } from '@/hooks/useAsync';
-import { getAllProperties } from '@/services/api';
+import { getAllProperties } from '@/services';
+import type { Property } from '@/types/property';
 
 export default function HomePage() {
-  const { data: properties, loading, error, execute } = useAsync(getAllProperties);
+  const {
+    data: properties,
+    loading,
+    error,
+    execute,
+  } = useAsync<Property[]>(getAllProperties, true);
 
   if (loading) {
     return (

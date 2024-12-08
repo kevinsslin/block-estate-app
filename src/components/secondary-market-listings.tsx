@@ -45,7 +45,7 @@ export function SecondaryMarketListings() {
                 <CardTitle className="text-lg">{listing.propertyName}</CardTitle>
                 <p className="text-sm text-muted-foreground">Token ID: {listing.tokenId}</p>
               </div>
-              <Badge variant={listing.positive ? 'success' : 'destructive'}>
+              <Badge variant={listing.positive ? 'default' : 'secondary'}>
                 {listing.positive ? (
                   <ArrowUpRight className="h-4 w-4" />
                 ) : (

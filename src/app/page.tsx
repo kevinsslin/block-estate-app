@@ -1,53 +1,19 @@
 'use client';
 
-import { ErrorDisplay } from '@/components/ErrorDisplay';
-import { LoadingState } from '@/components/LoadingState';
-import { PropertyCard } from '@/components/PropertyCard';
-import { useAsync } from '@/hooks/useAsync';
-import { getAllProperties } from '@/services';
-import type { Property } from '@/types/property';
+import { FeaturesSection } from '@/components/sections/features-section';
+import { HeroSection } from '@/components/sections/hero-section';
+import { HowItWorksSection } from '@/components/sections/how-it-works-section';
+import { NewsletterSection } from '@/components/sections/newsletter-section';
+import { PropertyListingsSection } from '@/components/sections/property-listings-section';
 
-export default function HomePage() {
-  const {
-    data: properties,
-    loading,
-    error,
-    execute,
-  } = useAsync<Property[]>(getAllProperties, true);
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <LoadingState />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <ErrorDisplay title="Failed to Load Properties" message={error.message} onRetry={execute} />
-      </div>
-    );
-  }
-
-  if (!properties || properties.length === 0) {
-    return (
-      <main className="container mx-auto px-4 py-12">
-        <h1 className="mb-8 text-4xl font-bold text-blue-900">Available Properties</h1>
-        <p className="text-center text-gray-500">No properties available at the moment.</p>
-      </main>
-    );
-  }
-
+export default function Home() {
   return (
-    <main className="container mx-auto px-4 py-12">
-      <h1 className="mb-8 text-4xl font-bold text-blue-900">Available Properties</h1>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-        {properties.map((property) => (
-          <PropertyCard key={property.id} property={property} />
-        ))}
-      </div>
-    </main>
+    <div className="bg-gray-50">
+      <HeroSection />
+      <FeaturesSection />
+      <PropertyListingsSection />
+      <HowItWorksSection />
+      <NewsletterSection />
+    </div>
   );
 }

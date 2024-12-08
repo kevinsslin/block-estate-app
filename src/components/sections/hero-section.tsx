@@ -21,7 +21,7 @@ export function HeroSection() {
               fontWeight: 'bold',
             }}
           >
-            Welcome to <span className="text-yellow-400">BlockEstate</span>
+            Welcome to <span className="text-yellow-400">BlockEstate</span> 🌟
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -34,9 +34,9 @@ export function HeroSection() {
               color: '#bfdbfe',
             }}
           >
-            Revolutionizing Real Estate Investment Through Blockchain Technology. Invest in premium
-            properties with minimal capital, enjoy high liquidity, and benefit from fractional
-            ownership.
+            🏠 Revolutionizing Real Estate Investment Through Blockchain Technology. 💎 Invest in
+            premium properties with minimal capital, 🔄 enjoy high liquidity, and 🤝 benefit from
+            fractional ownership.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}

@@ -48,7 +48,7 @@ export function FeaturesSection() {
             color: '#1e3a8a',
           }}
         >
-          Why Choose BlockEstate?
+          ✨ Why Choose BlockEstate? ✨
         </motion.h2>
         <div className="grid gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3">
           {features.map((feature) => (
@@ -60,7 +60,8 @@ export function FeaturesSection() {
               viewport={{ once: true }}
               whileHover={{
                 scale: 1.05,
-                transition: { duration: 0.2 },
+                rotate: [0, -1, 1, -1, 0],
+                transition: { duration: 0.3 },
               }}
               style={{
                 display: 'flex',
@@ -68,9 +69,10 @@ export function FeaturesSection() {
                 alignItems: 'center',
                 textAlign: 'center',
                 backgroundColor: 'white',
-                padding: '1rem',
-                borderRadius: '0.5rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
+                padding: '1.5rem',
+                borderRadius: '1rem',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                border: '2px solid #e5e7eb',
               }}
             >
               <motion.div

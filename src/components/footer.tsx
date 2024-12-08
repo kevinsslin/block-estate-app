@@ -6,38 +6,40 @@ export function Footer() {
       <div className="container mx-auto px-4">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div className="text-center sm:text-left">
-            <h3 className="mb-3 text-lg font-bold text-blue-900 sm:mb-4 sm:text-xl">BlockEstate</h3>
+            <h3 className="mb-3 text-lg font-bold text-blue-900 sm:mb-4 sm:text-xl">
+              BlockEstate 🏢
+            </h3>
             <p className="text-sm text-gray-600 sm:text-base">
-              Revolutionizing real estate investment through blockchain technology.
+              🚀 Revolutionizing real estate investment through blockchain technology.
             </p>
           </div>
           <div className="text-center sm:text-left">
             <h4 className="mb-3 text-base font-semibold text-blue-900 sm:mb-4 sm:text-lg">
-              Quick Links
+              🔗 Quick Links
             </h4>
             <ul className="space-y-2">
               <li>
                 <Link
                   href="/explore-properties"
-                  className="text-sm text-gray-600 transition-colors hover:text-blue-500 sm:text-base"
+                  className="inline-flex items-center gap-2 text-sm text-gray-600 transition-colors hover:translate-x-1 hover:text-blue-500 sm:text-base"
                 >
-                  Explore Properties
+                  🏠 Explore Properties
                 </Link>
               </li>
               <li>
                 <Link
                   href="/secondary-market"
-                  className="text-sm text-gray-600 transition-colors hover:text-blue-500 sm:text-base"
+                  className="inline-flex items-center gap-2 text-sm text-gray-600 transition-colors hover:translate-x-1 hover:text-blue-500 sm:text-base"
                 >
-                  Secondary Market
+                  💱 Secondary Market
                 </Link>
               </li>
               <li>
                 <Link
                   href="/#how-it-works"
-                  className="text-sm text-gray-600 transition-colors hover:text-blue-500 sm:text-base"
+                  className="inline-flex items-center gap-2 text-sm text-gray-600 transition-colors hover:translate-x-1 hover:text-blue-500 sm:text-base"
                 >
-                  How It Works
+                  📖 How It Works
                 </Link>
               </li>
             </ul>

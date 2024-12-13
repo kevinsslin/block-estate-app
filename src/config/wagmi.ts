@@ -1,5 +1,5 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { mainnet, sepolia } from 'wagmi/chains';
+import { bscTestnet } from 'wagmi/chains';
 
 import '@rainbow-me/rainbowkit/styles.css';
 
@@ -12,5 +12,5 @@ if (!projectId) {
 export const config = getDefaultConfig({
   appName: 'BlockEstate',
   projectId: projectId ?? '',
-  chains: [mainnet, sepolia],
+  chains: [bscTestnet],
 });

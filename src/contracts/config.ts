@@ -25,7 +25,7 @@ export type SupportedChainId = (typeof SUPPORTED_CHAINS)[keyof typeof SUPPORTED_
 
 // Helper function to check if a chain ID is supported
 export function isSupportedChainId(chainId: number): chainId is SupportedChainId {
-  return Object.values(SUPPORTED_CHAINS).includes(chainId);
+  return Object.values(SUPPORTED_CHAINS).includes(chainId as SupportedChainId);
 }
 
 // Helper function to get chain name

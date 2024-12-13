@@ -13,4 +13,5 @@ export const config = getDefaultConfig({
   appName: 'BlockEstate',
   projectId: projectId ?? '',
   chains: [bscTestnet],
+  ssr: true,
 });

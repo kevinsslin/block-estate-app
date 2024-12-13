@@ -1,14 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { decodeEventLog, parseEther } from 'viem';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase/client';
 import { uploadImages, uploadMetadata } from '@/lib/supabase/storage';
-import { useBlockEstateContract } from '@/contracts/hooks/useBlockEstateContract';
-import { tokenizeProperty } from '@/contracts/utils/contractHelpers';
+import { BlockEstateFactoryABI } from '@/contracts/abis';
+
+// Constants
+const FACTORY_ADDRESS = process.env.NEXT_PUBLIC_FACTORY_ADDRESS;
 
 // Constants for dropdown options
 const PROPERTY_TYPES = ['Apartment', 'House', 'Villa', 'Commercial', 'Land', 'Other'] as const;
@@ -36,13 +41,28 @@ interface TokenForm {
   description: string;
 }
 
+interface PropertyData {
+  name: string;
+  description: string;
+  location: string;
+  propertyType: (typeof PROPERTY_TYPES)[number];
+  size: string;
+  bedrooms: string;
+  bathrooms: string;
+  yearBuilt: string;
+  amenities: string[];
+}
+
 export default function TokenizePage() {
   const router = useRouter();
-  const { address } = useAccount();
-  const { contract, isConnected, isWrongNetwork } = useBlockEstateContract();
+  const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
 
+  const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [propertyData, setPropertyData] = useState({
+  const [error, setError] = useState<string | null>(null);
+  const [propertyData, setPropertyData] = useState<PropertyData>({
     name: '',
     description: '',
     location: '',
@@ -51,7 +71,7 @@ export default function TokenizePage() {
     bedrooms: '',
     bathrooms: '',
     yearBuilt: '',
-    amenities: [] as string[],
+    amenities: [],
   });
   const [images, setImages] = useState<File[]>([]);
   const [tokens, setTokens] = useState<TokenForm[]>([
@@ -59,6 +79,10 @@ export default function TokenizePage() {
   ]);
   const [quoteAsset, setQuoteAsset] = useState('');
   const [startTime, setStartTime] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handlePropertyDataChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -121,23 +145,86 @@ export default function TokenizePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
     if (!isConnected) {
-      alert('Please connect your wallet');
+      setError('Please connect your wallet first');
       return;
     }
-    if (isWrongNetwork) {
-      alert('Please switch to the correct network');
+
+    if (!publicClient || !walletClient) {
+      setError('Wallet client not initialized. Please try again.');
       return;
     }
-    if (!contract || !address) return;
+
+    if (!address) {
+      setError('Wallet address not found. Please reconnect your wallet.');
+      return;
+    }
 
     try {
       setIsLoading(true);
 
-      // 1. Upload images to Supabase Storage
+      // Check required fields with specific error messages
+      const errors: string[] = [];
+
+      if (!propertyData.name) {
+        errors.push('Property Name is required');
+      }
+
+      if (!propertyData.description) {
+        errors.push('Property Description is required');
+      }
+
+      if (!propertyData.location) {
+        errors.push('Property Location is required');
+      }
+
+      if (!propertyData.size) {
+        errors.push('Property Size is required');
+      }
+
+      if (!propertyData.bedrooms) {
+        errors.push('Number of Bedrooms is required');
+      }
+
+      if (!propertyData.bathrooms) {
+        errors.push('Number of Bathrooms is required');
+      }
+
+      if (!propertyData.yearBuilt) {
+        errors.push('Year Built is required');
+      }
+
+      if (images.length === 0) {
+        errors.push('At least one property image is required');
+      }
+      // Validate token fields
+      tokens.forEach((token, index) => {
+        if (!token.price) {
+          errors.push(`Token #${index + 1}: Price is required`);
+        }
+        if (!token.supply) {
+          errors.push(`Token #${index + 1}: Supply is required`);
+        }
+      });
+
+      if (!quoteAsset) {
+        errors.push('Quote Asset Address (USDT) is required');
+      }
+
+      if (!startTime) {
+        errors.push('Start Time is required');
+      }
+
+      // If there are any errors, show all error messages
+      if (errors.length > 0) {
+        throw new Error(`Please fill in the following required fields:\n${errors.join('\n')}`);
+      }
+      // Continue with tokenization process
       const imageUrls = await uploadImages(images);
 
-      // 2. Create metadata object and upload to Supabase Storage
+      // Create metadata with all required fields
       const metadata = {
         name: propertyData.name,
         description: propertyData.description,
@@ -150,31 +237,64 @@ export default function TokenizePage() {
         yearBuilt: Number(propertyData.yearBuilt),
         amenities: propertyData.amenities,
       };
+
       const metadataUri = await uploadMetadata(metadata);
 
-      // 3. Call smart contract
-      const tokenIds = tokens.map((t) => t.id);
-      const prices = tokens.map((t) => t.price);
-      const supplies = tokens.map((t) => t.supply);
-      const startTimestamp = Math.floor(new Date(startTime).getTime() / 1000);
+      // Prepare contract parameters
+      const tokenIds = tokens.map((t) => BigInt(t.id));
+      const prices = tokens.map((t) => parseEther(t.price));
+      const supplies = tokens.map((t) => BigInt(t.supply));
+      const startTimestamp = BigInt(Math.floor(new Date(startTime).getTime() / 1000));
 
-      const estateAddress = await tokenizeProperty(
-        contract,
-        metadataUri,
-        quoteAsset,
-        tokenIds,
-        prices,
-        supplies,
-        startTimestamp
-      );
+      // Call smart contract
+      const { request } = await publicClient.simulateContract({
+        address: FACTORY_ADDRESS as `0x${string}`,
+        abi: BlockEstateFactoryABI.abi,
+        functionName: 'tokenizeProperty',
+        args: [
+          metadataUri,
+          quoteAsset as `0x${string}`,
+          tokenIds,
+          prices,
+          supplies,
+          startTimestamp,
+        ],
+        account: address,
+      });
 
-      // 4. Save to Supabase
-      const { data, error } = await supabase
+      const hash = await walletClient.writeContract(request);
+      console.log('Transaction hash:', hash);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('Transaction receipt:', receipt);
+
+      // Look for PropertyTokenized event
+      const event = receipt.logs.find((log) => {
+        try {
+          const decoded = decodeEventLog({
+            abi: BlockEstateFactoryABI.abi,
+            data: log.data,
+            topics: log.topics,
+          });
+          return decoded.eventName === 'PropertyTokenized';
+        } catch {
+          return false;
+        }
+      });
+
+      if (!event) {
+        throw new Error('Property tokenization failed: Event not found');
+      }
+
+      const estateAddress = event.topics[1] as `0x${string}`;
+
+      // Save to Supabase
+      const { data, error: dbError } = await supabase
         .from('properties')
         .insert({
           address: propertyData.location,
           metadata_uri: metadataUri,
-          image_url: imageUrls[0] || '',
+          image_url: imageUrls[0],
           quote_asset: quoteAsset,
           start_timestamp: new Date(startTime).toISOString(),
           owner_address: address,
@@ -184,10 +304,13 @@ export default function TokenizePage() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (dbError) {
+        console.error('Database error:', dbError);
+        throw new Error('Failed to save property data');
+      }
 
-      // 5. Save tokens
-      await supabase.from('property_tokens').insert(
+      // Save tokens
+      const { error: tokensError } = await supabase.from('property_tokens').insert(
         tokens.map((token) => ({
           property_id: data.id,
           token_id: token.id,
@@ -198,14 +321,66 @@ export default function TokenizePage() {
         }))
       );
 
+      if (tokensError) {
+        console.error('Error saving tokens:', tokensError);
+        throw new Error('Failed to save token data');
+      }
+
       router.push(`/properties/${estateAddress}`);
-    } catch (error) {
-      console.error('Error tokenizing property:', error);
-      alert('Failed to tokenize property. Please try again.');
+    } catch (err) {
+      console.error('Error tokenizing property:', err);
+      setError(err instanceof Error ? err.message : 'Failed to tokenize property');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Return null or loading state on server-side
+  if (!mounted) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card className="mx-auto max-w-md">
+          <CardContent className="flex flex-col items-center gap-4 p-8">
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500" />
+            <p className="text-center text-gray-600">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // If not connected, show connect wallet UI
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card className="mx-auto max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Connect Your Wallet</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-4">
+            <p className="text-center text-gray-600">
+              Please connect your wallet to tokenize your property
+            </p>
+            <ConnectButton />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // If loading, show loading state
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card className="mx-auto max-w-md">
+          <CardContent className="flex flex-col items-center gap-4 p-8">
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500" />
+            <p className="text-center text-gray-600">Processing your request...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-4xl space-y-8 p-6">
@@ -214,8 +389,11 @@ export default function TokenizePage() {
         <h2 className="text-2xl font-bold">Property Details</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Property Name</label>
+            <label htmlFor="propertyName" className="block text-sm font-medium text-gray-700">
+              Property Name <span className="text-red-500">*</span>
+            </label>
             <input
+              id="propertyName"
               type="text"
               name="name"
               value={propertyData.name}
@@ -227,8 +405,11 @@ export default function TokenizePage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Property Type</label>
+            <label htmlFor="propertyType" className="block text-sm font-medium text-gray-700">
+              Property Type <span className="text-red-500">*</span>
+            </label>
             <select
+              id="propertyType"
               name="propertyType"
               value={propertyData.propertyType}
               onChange={handlePropertyDataChange}
@@ -244,8 +425,11 @@ export default function TokenizePage() {
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+              Description <span className="text-red-500">*</span>
+            </label>
             <textarea
+              id="description"
               name="description"
               value={propertyData.description}
               onChange={handlePropertyDataChange}
@@ -256,8 +440,11 @@ export default function TokenizePage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Location</label>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+              Location <span className="text-red-500">*</span>
+            </label>
             <input
+              id="location"
               type="text"
               name="location"
               value={propertyData.location}
@@ -269,8 +456,11 @@ export default function TokenizePage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Size (sqft)</label>
+            <label htmlFor="size" className="block text-sm font-medium text-gray-700">
+              Size (sqft) <span className="text-red-500">*</span>
+            </label>
             <input
+              id="size"
               type="number"
               name="size"
               value={propertyData.size}
@@ -283,8 +473,11 @@ export default function TokenizePage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Bedrooms</label>
+            <label htmlFor="bedrooms" className="block text-sm font-medium text-gray-700">
+              Bedrooms <span className="text-red-500">*</span>
+            </label>
             <input
+              id="bedrooms"
               type="number"
               name="bedrooms"
               value={propertyData.bedrooms}
@@ -297,8 +490,11 @@ export default function TokenizePage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Bathrooms</label>
+            <label htmlFor="bathrooms" className="block text-sm font-medium text-gray-700">
+              Bathrooms <span className="text-red-500">*</span>
+            </label>
             <input
+              id="bathrooms"
               type="number"
               name="bathrooms"
               value={propertyData.bathrooms}
@@ -311,8 +507,11 @@ export default function TokenizePage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Year Built</label>
+            <label htmlFor="yearBuilt" className="block text-sm font-medium text-gray-700">
+              Year Built <span className="text-red-500">*</span>
+            </label>
             <input
+              id="yearBuilt"
               type="number"
               name="yearBuilt"
               value={propertyData.yearBuilt}
@@ -327,27 +526,29 @@ export default function TokenizePage() {
         </div>
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">Amenities</label>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            {AMENITIES.map((amenity) => (
-              <label
-                key={amenity}
-                className={`flex cursor-pointer items-center rounded border p-2 transition-colors ${
-                  propertyData.amenities.includes(amenity)
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'hover:bg-gray-50'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={propertyData.amenities.includes(amenity)}
-                  onChange={() => handleAmenityToggle(amenity)}
-                  className="mr-2"
-                />
-                {amenity}
-              </label>
-            ))}
-          </div>
+          <fieldset>
+            <legend className="block text-sm font-medium text-gray-700">Amenities</legend>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {AMENITIES.map((amenity) => (
+                <label
+                  key={amenity}
+                  className={`flex cursor-pointer items-center rounded border p-2 transition-colors ${
+                    propertyData.amenities.includes(amenity)
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={propertyData.amenities.includes(amenity)}
+                    onChange={() => handleAmenityToggle(amenity)}
+                    className="mr-2"
+                  />
+                  {amenity}
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </div>
       </section>
 
@@ -355,13 +556,16 @@ export default function TokenizePage() {
       <section className="space-y-4">
         <h2 className="text-2xl font-bold">Property Images</h2>
         <div className="space-y-4">
+          <label htmlFor="images" className="block text-sm font-medium text-gray-700">
+            Property Images <span className="text-red-500">*</span>
+          </label>
           <input
+            id="images"
             type="file"
             multiple
             accept="image/*"
             onChange={handleImageUpload}
             className="hidden"
-            id="images"
             required
           />
           <label
@@ -373,7 +577,7 @@ export default function TokenizePage() {
           {images.length > 0 && (
             <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
               {Array.from(images).map((image, index) => (
-                <div key={index} className="relative aspect-square">
+                <div key={`image-${index}-${image.name}`} className="relative aspect-square">
                   <Image
                     src={URL.createObjectURL(image)}
                     alt={`Preview ${index + 1}`}
@@ -416,12 +620,17 @@ export default function TokenizePage() {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Token Type</label>
+                  <label
+                    htmlFor={`tokenType-${index}`}
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Token Type
+                  </label>
                   <select
+                    id={`tokenType-${index}`}
                     value={token.type}
                     onChange={(e) => handleTokenChange(index, 'type', e.target.value)}
                     className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    required
                   >
                     {TOKEN_TYPES.map((type) => (
                       <option key={type} value={type}>
@@ -432,8 +641,14 @@ export default function TokenizePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Price (USDT)</label>
+                  <label
+                    htmlFor={`tokenPrice-${index}`}
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Token Price <span className="text-red-500">*</span>
+                  </label>
                   <input
+                    id={`tokenPrice-${index}`}
                     type="number"
                     value={token.price}
                     onChange={(e) => handleTokenChange(index, 'price', e.target.value)}
@@ -446,8 +661,14 @@ export default function TokenizePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Supply</label>
+                  <label
+                    htmlFor={`tokenSupply-${index}`}
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Token Supply <span className="text-red-500">*</span>
+                  </label>
                   <input
+                    id={`tokenSupply-${index}`}
                     type="number"
                     value={token.supply}
                     onChange={(e) => handleTokenChange(index, 'supply', Number(e.target.value))}
@@ -459,14 +680,19 @@ export default function TokenizePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <label
+                    htmlFor={`tokenDescription-${index}`}
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Description
+                  </label>
                   <input
+                    id={`tokenDescription-${index}`}
                     type="text"
                     value={token.description}
                     onChange={(e) => handleTokenChange(index, 'description', e.target.value)}
                     placeholder="Token description"
                     className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                    required
                   />
                 </div>
               </div>
@@ -480,10 +706,11 @@ export default function TokenizePage() {
         <h2 className="text-2xl font-bold">Additional Settings</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Quote Asset Address (USDT)
+            <label htmlFor="quoteAsset" className="block text-sm font-medium text-gray-700">
+              Quote Asset Address (USDT) <span className="text-red-500">*</span>
             </label>
             <input
+              id="quoteAsset"
               type="text"
               value={quoteAsset}
               onChange={(e) => setQuoteAsset(e.target.value)}
@@ -494,8 +721,11 @@ export default function TokenizePage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Start Time</label>
+            <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">
+              Start Time <span className="text-red-500">*</span>
+            </label>
             <input
+              id="startTime"
               type="datetime-local"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
@@ -510,15 +740,16 @@ export default function TokenizePage() {
       {/* Submit Button */}
       <button
         type="submit"
-        disabled={isLoading || !isConnected || isWrongNetwork}
+        disabled={isLoading}
         className="w-full rounded-lg bg-blue-600 px-4 py-3 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isLoading ? 'Processing...' : 'Tokenize Property'}
       </button>
 
-      {!isConnected && <p className="text-center text-red-500">Please connect your wallet</p>}
-      {isWrongNetwork && (
-        <p className="text-center text-red-500">Please switch to the correct network</p>
+      {error && (
+        <div className="rounded-lg bg-red-50 p-4 text-red-500">
+          <p className="text-center">{error}</p>
+        </div>
       )}
     </form>
   );

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ArrowDown } from 'lucide-react';
+import { useAccount } from 'wagmi';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +19,23 @@ import {
 export function TokenSwapInterface() {
   const [fromToken, setFromToken] = useState('USDC');
   const [toToken, setToToken] = useState('LUXY-001');
+  const { isConnected } = useAccount();
+
+  if (!isConnected) {
+    return (
+      <Card className="mx-auto w-full max-w-md">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-xl font-bold sm:text-2xl">Connect Wallet</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-4 p-4 sm:p-6">
+          <p className="text-center text-sm text-muted-foreground">
+            Please connect your wallet to access token swapping
+          </p>
+          <ConnectButton />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="mx-auto w-full max-w-md">

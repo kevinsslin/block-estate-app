@@ -4,14 +4,13 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Calendar, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import { parseEther } from 'viem';
 import {
   erc20ABI,
-  parseUnits,
   useAccount,
   useContractRead,
-  useContractWrite,
-  usePrepareContractWrite,
-  useWaitForTransaction,
+  useSimulateContract,
+  useWriteContract,
 } from 'wagmi';
 
 import { PropertyStats } from '@/components/PropertyStats';
@@ -68,59 +67,28 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
   });
 
   // Prepare BUSD approval
-  const { config: approveConfig, error: approveError } = usePrepareContractWrite({
+  const { data: approveData } = useSimulateContract({
     address: quoteAssetAddress as `0x${string}`,
     abi: erc20ABI,
     functionName: 'approve',
     args: [
       property.contract_address as `0x${string}`,
-      parseUnits(actualBUSDAmount.toString() || '0', 18),
+      parseEther(actualBUSDAmount.toString() || '0'),
     ],
     enabled: Boolean(address && tokenAmount > 0 && actualBUSDAmount > 0),
   });
 
-  const {
-    write: approve,
-    data: approveData,
-    isLoading: isApproving,
-  } = useContractWrite(approveConfig);
-
-  const {
-    isLoading: isApproveWaiting,
-    isSuccess: isApproveSuccess,
-    error: approveWaitError,
-  } = useWaitForTransaction({
-    hash: approveData?.hash,
-  });
+  // Write contract hooks
+  const { writeContractAsync: writeContract } = useWriteContract();
 
   // Prepare mint transaction
-  const { config: mintConfig, error: mintError } = usePrepareContractWrite({
+  const { data: mintData } = useSimulateContract({
     address: property.contract_address as `0x${string}`,
     abi: BlockEstateABI.abi,
     functionName: 'mint',
     args: [address, token?.token_id || 0, tokenAmount],
-    enabled: Boolean(token && address && tokenAmount > 0 && isApproveSuccess),
+    enabled: Boolean(token && address && tokenAmount > 0),
   });
-
-  const { write: mint, data: mintData, isLoading: isMinting } = useContractWrite(mintConfig);
-
-  const {
-    isLoading: isMintWaiting,
-    isSuccess: isMintSuccess,
-    error: mintWaitError,
-  } = useWaitForTransaction({
-    hash: mintData?.hash,
-  });
-
-  const isLoading = isApproving || isApproveWaiting || isMinting || isMintWaiting;
-
-  // Early return if no token is available
-  if (!token) {
-    toast.error('No token information available for this property', {
-      description: 'Please try again later or contact support if the issue persists.',
-    });
-    return null;
-  }
 
   const handleInvest = async () => {
     try {
@@ -131,7 +99,7 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
         return;
       }
 
-      const investmentAmountBN = parseUnits(actualBUSDAmount.toString() || '0', 18);
+      const investmentAmountBN = parseEther(actualBUSDAmount.toString() || '0');
       const userBalance = busdBalance || BigInt(0);
 
       if (userBalance < investmentAmountBN) {
@@ -155,15 +123,6 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
         return;
       }
 
-      if (!approve) {
-        const errorMsg = approveError?.message || 'Unable to prepare BUSD approval';
-        console.error('Approval preparation error:', errorMsg);
-        toast.error('Transaction preparation failed', {
-          description: errorMsg,
-        });
-        return;
-      }
-
       // First approve BUSD spending
       const formattedAmount = actualBUSDAmount.toLocaleString(undefined, {
         minimumFractionDigits: 2,
@@ -175,45 +134,38 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
       });
 
       try {
-        await approve();
-
-        // Wait for approval confirmation
-        if (approveWaitError) {
-          throw approveWaitError;
+        if (!approveData?.request) {
+          throw new Error('Failed to prepare approval transaction');
         }
+
+        // Execute BUSD approval
+        await writeContract(approveData.request);
 
         toast.loading('Approval successful', {
           description: 'Preparing to purchase tokens...',
           id: toastId,
         });
 
-        if (!mint) {
-          const errorMsg = mintError?.message || 'Unable to prepare token purchase';
-          throw new Error(errorMsg);
+        if (!mintData?.request) {
+          throw new Error('Failed to prepare mint transaction');
         }
 
-        // Then mint tokens
+        // Execute token purchase
         toast.loading('Transaction in progress', {
           description: `Purchasing ${tokenAmount} tokens...`,
           id: toastId,
         });
 
-        await mint();
+        await writeContract(mintData.request);
 
-        // Wait for mint confirmation
-        if (mintWaitError) {
-          throw mintWaitError;
-        }
+        toast.success('Investment successful!', {
+          description: `Successfully purchased ${tokenAmount} tokens for ${formattedAmount} BUSD`,
+          id: toastId,
+          duration: 6000,
+        });
 
-        if (isMintSuccess) {
-          toast.success('Investment successful!', {
-            description: `Successfully purchased ${tokenAmount} tokens for ${formattedAmount} BUSD`,
-            id: toastId,
-            duration: 6000,
-          });
-          setIsDialogOpen(false);
-          setInvestmentAmount('');
-        }
+        setIsDialogOpen(false);
+        setInvestmentAmount('');
       } catch (error) {
         console.error('Transaction error:', error);
         toast.error('Transaction failed', {
@@ -375,9 +327,7 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
                     </div>
                   </div>
                   <div className="flex justify-end">
-                    <Button onClick={handleInvest} disabled={isLoading}>
-                      {isLoading ? 'Processing...' : 'Confirm Investment'}
-                    </Button>
+                    <Button onClick={handleInvest}>Confirm Investment</Button>
                   </div>
                 </DialogContent>
               </Dialog>

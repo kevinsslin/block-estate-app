@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Calendar, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { erc20Abi, parseEther } from 'viem';
-import { useAccount, useContractRead, useSimulateContract, useWriteContract } from 'wagmi';
+import { useAccount, useReadContract, useSimulateContract, useWriteContract } from 'wagmi';
 
 import { PropertyStats } from '@/components/PropertyStats';
 import { Badge } from '@/components/ui/badge';
@@ -51,7 +51,7 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
   const actualBUSDAmount = tokenAmount * price;
 
   // Get BUSD balance
-  const { data: busdBalance } = useContractRead({
+  const { data: busdBalance } = useReadContract({
     address: quoteAssetAddress as `0x${string}`,
     abi: erc20Abi,
     functionName: 'balanceOf',
@@ -60,13 +60,19 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
     watch: true,
   });
 
+  // removing leading zeros
+  const formattedContractAddress = property.contract_address.startsWith('0x')
+    ? `0x${property.contract_address.slice(2).replace(/^0+/, '')}`
+    : `0x${property.contract_address.replace(/^0+/, '')}`;
+
+  console.log('Formatted contract address:', formattedContractAddress);
   // Prepare BUSD approval
   const { data: approveData } = useSimulateContract({
     address: quoteAssetAddress as `0x${string}`,
     abi: erc20Abi,
     functionName: 'approve',
     args: [
-      property.contract_address as `0x${string}`,
+      formattedContractAddress as `0x${string}`,
       parseEther(actualBUSDAmount.toString() || '0'),
     ],
     enabled: Boolean(address && tokenAmount > 0 && actualBUSDAmount > 0),
@@ -77,7 +83,7 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
 
   // Prepare mint transaction
   const { data: mintData } = useSimulateContract({
-    address: property.contract_address as `0x${string}`,
+    address: formattedContractAddress as `0x${string}`,
     abi: BlockEstateABI.abi,
     functionName: 'mint',
     args: [address, token?.token_id || 0, tokenAmount],
@@ -95,7 +101,6 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
 
       const investmentAmountBN = parseEther(actualBUSDAmount.toString() || '0');
       const userBalance = busdBalance || BigInt(0);
-      console.log('userBalance', userBalance);
       if (userBalance < investmentAmountBN) {
         toast.error('Insufficient BUSD balance', {
           description: `You need ${actualBUSDAmount.toLocaleString()} BUSD to make this investment`,

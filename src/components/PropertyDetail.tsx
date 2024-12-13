@@ -65,7 +65,6 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
     ? `0x${property.contract_address.slice(2).replace(/^0+/, '')}`
     : `0x${property.contract_address.replace(/^0+/, '')}`;
 
-  console.log('Formatted contract address:', formattedContractAddress);
   // Prepare BUSD approval
   const { data: approveData } = useSimulateContract({
     address: quoteAssetAddress as `0x${string}`,

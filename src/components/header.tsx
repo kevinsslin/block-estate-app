@@ -57,6 +57,13 @@ export function Header() {
                   Explore Properties
                 </Link>
                 <Link
+                  href="/tokenize"
+                  className="text-lg text-gray-600 transition-colors hover:text-blue-600"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Tokenize Property
+                </Link>
+                <Link
                   href="/secondary-market"
                   className="text-lg text-gray-600 transition-colors hover:text-blue-600"
                   onClick={() => setIsOpen(false)}
@@ -89,6 +96,9 @@ export function Header() {
             className="text-gray-600 transition-colors hover:text-blue-600"
           >
             Explore Properties
+          </Link>
+          <Link href="/tokenize" className="text-gray-600 transition-colors hover:text-blue-600">
+            Tokenize Property
           </Link>
           <Link
             href="/secondary-market"

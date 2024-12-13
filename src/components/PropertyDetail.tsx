@@ -3,6 +3,16 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { Calendar, MapPin } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  erc20ABI,
+  parseUnits,
+  useAccount,
+  useContractRead,
+  useContractWrite,
+  usePrepareContractWrite,
+  useWaitForTransaction,
+} from 'wagmi';
 
 import { PropertyStats } from '@/components/PropertyStats';
 import { Badge } from '@/components/ui/badge';
@@ -20,29 +30,255 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import type { PropertyWithTokens } from '@/lib/supabase/types';
+import BlockEstateABI from '@/contracts/abis/BlockEstate.json';
 
 interface PropertyDetailProps {
   property: PropertyWithTokens;
 }
 
+const DEFAULT_TBUSD_ADDRESS = '0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814';
+
 export function PropertyDetail({ property }: PropertyDetailProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [investmentAmount, setInvestmentAmount] = useState('');
+  const { address } = useAccount();
+
+  // Use default tBUSD address if quote_asset_address is not available
+  const quoteAssetAddress = property.quote_asset_address || DEFAULT_TBUSD_ADDRESS;
 
   // Get the first token for this property
   const token = property.tokens[0];
-  if (!token) return null;
 
-  // Calculate total price and ensure numbers are valid
-  const price = Number(token.price) || 0;
-  const maxSupply = token.max_supply || 0;
-  const currentSupply = token.current_supply || 0;
+  // Calculate values based on token
+  const price = token ? Number(token.price) || 0 : 0;
+  const maxSupply = token ? token.max_supply || 0 : 0;
+  const currentSupply = token ? token.current_supply || 0 : 0;
   const totalPrice = price * maxSupply;
+  const tokenAmount = investmentAmount ? Math.floor(Number(investmentAmount) / price) : 0;
+  const actualBUSDAmount = tokenAmount * price;
 
-  const handleInvest = () => {
-    console.log(`Investing ${investmentAmount} in ${property.address}`);
-    setIsDialogOpen(false);
-    setInvestmentAmount('');
+  // Get BUSD balance
+  const { data: busdBalance } = useContractRead({
+    address: quoteAssetAddress as `0x${string}`,
+    abi: erc20ABI,
+    functionName: 'balanceOf',
+    args: [address as `0x${string}`],
+    enabled: Boolean(address),
+    watch: true,
+  });
+
+  // Prepare BUSD approval
+  const { config: approveConfig, error: approveError } = usePrepareContractWrite({
+    address: quoteAssetAddress as `0x${string}`,
+    abi: erc20ABI,
+    functionName: 'approve',
+    args: [
+      property.contract_address as `0x${string}`,
+      parseUnits(actualBUSDAmount.toString() || '0', 18),
+    ],
+    enabled: Boolean(address && tokenAmount > 0 && actualBUSDAmount > 0),
+  });
+
+  const {
+    write: approve,
+    data: approveData,
+    isLoading: isApproving,
+  } = useContractWrite(approveConfig);
+
+  const {
+    isLoading: isApproveWaiting,
+    isSuccess: isApproveSuccess,
+    error: approveWaitError,
+  } = useWaitForTransaction({
+    hash: approveData?.hash,
+  });
+
+  // Prepare mint transaction
+  const { config: mintConfig, error: mintError } = usePrepareContractWrite({
+    address: property.contract_address as `0x${string}`,
+    abi: BlockEstateABI.abi,
+    functionName: 'mint',
+    args: [address, token?.token_id || 0, tokenAmount],
+    enabled: Boolean(token && address && tokenAmount > 0 && isApproveSuccess),
+  });
+
+  const { write: mint, data: mintData, isLoading: isMinting } = useContractWrite(mintConfig);
+
+  const {
+    isLoading: isMintWaiting,
+    isSuccess: isMintSuccess,
+    error: mintWaitError,
+  } = useWaitForTransaction({
+    hash: mintData?.hash,
+  });
+
+  const isLoading = isApproving || isApproveWaiting || isMinting || isMintWaiting;
+
+  // Early return if no token is available
+  if (!token) {
+    toast.error('No token information available for this property', {
+      description: 'Please try again later or contact support if the issue persists.',
+    });
+    return null;
+  }
+
+  const handleInvest = async () => {
+    try {
+      if (!address) {
+        toast.error('Wallet not connected', {
+          description: 'Please connect your wallet to invest in this property',
+        });
+        return;
+      }
+
+      const investmentAmountBN = parseUnits(actualBUSDAmount.toString() || '0', 18);
+      const userBalance = busdBalance || BigInt(0);
+
+      if (userBalance < investmentAmountBN) {
+        toast.error('Insufficient BUSD balance', {
+          description: `You need ${actualBUSDAmount.toLocaleString()} BUSD to make this investment`,
+        });
+        return;
+      }
+
+      if (!tokenAmount || tokenAmount <= 0) {
+        toast.error('Invalid investment amount', {
+          description: `Minimum investment amount is ${price.toLocaleString()} BUSD`,
+        });
+        return;
+      }
+
+      if (tokenAmount + currentSupply > maxSupply) {
+        toast.error('Exceeds available supply', {
+          description: `Only ${maxSupply - currentSupply} tokens available for purchase`,
+        });
+        return;
+      }
+
+      if (!approve) {
+        const errorMsg = approveError?.message || 'Unable to prepare BUSD approval';
+        console.error('Approval preparation error:', errorMsg);
+        toast.error('Transaction preparation failed', {
+          description: errorMsg,
+        });
+        return;
+      }
+
+      // First approve BUSD spending
+      const formattedAmount = actualBUSDAmount.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+      const toastId = toast.loading('Preparing transaction...', {
+        description: `Approving ${formattedAmount} BUSD`,
+      });
+
+      try {
+        await approve();
+
+        // Wait for approval confirmation
+        if (approveWaitError) {
+          throw approveWaitError;
+        }
+
+        toast.loading('Approval successful', {
+          description: 'Preparing to purchase tokens...',
+          id: toastId,
+        });
+
+        if (!mint) {
+          const errorMsg = mintError?.message || 'Unable to prepare token purchase';
+          throw new Error(errorMsg);
+        }
+
+        // Then mint tokens
+        toast.loading('Transaction in progress', {
+          description: `Purchasing ${tokenAmount} tokens...`,
+          id: toastId,
+        });
+
+        await mint();
+
+        // Wait for mint confirmation
+        if (mintWaitError) {
+          throw mintWaitError;
+        }
+
+        if (isMintSuccess) {
+          toast.success('Investment successful!', {
+            description: `Successfully purchased ${tokenAmount} tokens for ${formattedAmount} BUSD`,
+            id: toastId,
+            duration: 6000,
+          });
+          setIsDialogOpen(false);
+          setInvestmentAmount('');
+        }
+      } catch (error) {
+        console.error('Transaction error:', error);
+        toast.error('Transaction failed', {
+          description: error instanceof Error ? error.message : 'Please try again later',
+          id: toastId,
+          duration: 5000,
+        });
+        throw error;
+      }
+    } catch (error) {
+      console.error('Investment error:', error);
+      if (error instanceof Error) {
+        toast.error('Investment failed', {
+          description: error.message,
+          duration: 5000,
+        });
+      } else {
+        toast.error('Investment failed', {
+          description: 'An unexpected error occurred. Please try again.',
+          duration: 5000,
+        });
+      }
+    }
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const numValue = Number(value);
+
+    // Basic validation
+    if (value === '') {
+      setInvestmentAmount('');
+      return;
+    }
+
+    if (isNaN(numValue)) {
+      toast.error('Invalid input', {
+        description: 'Please enter a valid number',
+      });
+      return;
+    }
+
+    if (numValue < 0) {
+      toast.error('Invalid amount', {
+        description: 'Investment amount cannot be negative',
+      });
+      return;
+    }
+
+    if (numValue < price) {
+      toast.error('Amount too low', {
+        description: `Minimum investment amount is ${price.toLocaleString()} BUSD`,
+      });
+      return;
+    }
+
+    const potentialTokens = Math.floor(numValue / price);
+    if (potentialTokens + currentSupply > maxSupply) {
+      toast.error('Amount too high', {
+        description: `Maximum available tokens: ${maxSupply - currentSupply}`,
+      });
+      return;
+    }
+
+    setInvestmentAmount(value);
   };
 
   // Try to parse metadata if it's a JSON string
@@ -126,9 +362,11 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
                         id="investment"
                         type="number"
                         value={investmentAmount}
-                        onChange={(e) => setInvestmentAmount(e.target.value)}
-                        placeholder="Enter amount"
+                        onChange={handleAmountChange}
+                        placeholder={`Minimum ${price.toLocaleString()} BUSD`}
                         className="col-span-3"
+                        min={price}
+                        step={price}
                       />
                     </div>
                     <div className="text-sm text-gray-500">
@@ -137,7 +375,9 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
                     </div>
                   </div>
                   <div className="flex justify-end">
-                    <Button onClick={handleInvest}>Confirm Investment</Button>
+                    <Button onClick={handleInvest} disabled={isLoading}>
+                      {isLoading ? 'Processing...' : 'Confirm Investment'}
+                    </Button>
                   </div>
                 </DialogContent>
               </Dialog>

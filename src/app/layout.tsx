@@ -1,4 +1,5 @@
 import { Inter } from 'next/font/google';
+import { Toaster } from 'sonner';
 
 import { Footer } from '@/components/footer';
 import { Header } from '@/components/header';
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Footer />
           </div>
         </Providers>
+        <Toaster />
       </body>
     </html>
   );

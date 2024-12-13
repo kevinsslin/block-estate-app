@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { toast } from 'sonner';
 import { decodeEventLog, parseEther } from 'viem';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 
@@ -14,6 +15,7 @@ import { BlockEstateFactoryABI } from '@/contracts/abis';
 
 // Constants
 const FACTORY_ADDRESS = process.env.NEXT_PUBLIC_FACTORY_ADDRESS;
+const DEFAULT_TBUSD_ADDRESS = process.env.NEXT_PUBLIC_DEFAULT_BUSD_ADDRESS;
 
 // Constants for dropdown options
 const PROPERTY_TYPES = ['Apartment', 'House', 'Villa', 'Commercial', 'Land', 'Other'] as const;
@@ -77,7 +79,7 @@ export default function TokenizePage() {
   const [tokens, setTokens] = useState<TokenForm[]>([
     { id: 1, price: '', supply: 0, type: TOKEN_TYPES[0], description: '' },
   ]);
-  const [quoteAsset, setQuoteAsset] = useState('');
+  const [quoteAsset, setQuoteAsset] = useState(DEFAULT_TBUSD_ADDRESS);
   const [startTime, setStartTime] = useState('');
 
   useEffect(() => {
@@ -105,10 +107,13 @@ export default function TokenizePage() {
       const files = Array.from(e.target.files);
       // Limit to 5 images
       if (files.length > 5) {
-        alert('Please select up to 5 images');
+        toast.error('Too many images', {
+          description: 'Please select up to 5 images',
+        });
         return;
       }
       setImages(files);
+      toast.success(`${files.length} images selected`);
     }
   };
 
@@ -120,7 +125,9 @@ export default function TokenizePage() {
 
   const addToken = () => {
     if (tokens.length >= 5) {
-      alert('Maximum 5 tokens allowed per property');
+      toast.error('Maximum tokens reached', {
+        description: 'Maximum 5 tokens allowed per property',
+      });
       return;
     }
     setTokens((prev) => [
@@ -133,14 +140,18 @@ export default function TokenizePage() {
         description: '',
       },
     ]);
+    toast.success('New token added');
   };
 
   const removeToken = (index: number) => {
     if (tokens.length <= 1) {
-      alert('At least one token is required');
+      toast.error('Cannot remove token', {
+        description: 'At least one token is required',
+      });
       return;
     }
     setTokens((prev) => prev.filter((_, i) => i !== index));
+    toast.success('Token removed');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,17 +159,23 @@ export default function TokenizePage() {
     setError(null);
 
     if (!isConnected) {
-      setError('Please connect your wallet first');
+      toast.error('Wallet not connected', {
+        description: 'Please connect your wallet first',
+      });
       return;
     }
 
     if (!publicClient || !walletClient) {
-      setError('Wallet client not initialized. Please try again.');
+      toast.error('Wallet error', {
+        description: 'Wallet client not initialized. Please try again.',
+      });
       return;
     }
 
     if (!address) {
-      setError('Wallet address not found. Please reconnect your wallet.');
+      toast.error('Wallet error', {
+        description: 'Wallet address not found. Please reconnect your wallet.',
+      });
       return;
     }
 
@@ -219,12 +236,26 @@ export default function TokenizePage() {
 
       // If there are any errors, show all error messages
       if (errors.length > 0) {
-        throw new Error(`Please fill in the following required fields:\n${errors.join('\n')}`);
+        const errorMessage = errors.join('\\n');
+        toast.error('Validation errors', {
+          description: errorMessage,
+        });
+        throw new Error(errorMessage);
       }
-      // Continue with tokenization process
+
+      // Start the tokenization process
+      toast.loading('Starting tokenization process...', {
+        description: 'Uploading images...',
+      });
+
+      // Upload images
       const imageUrls = await uploadImages(images);
 
-      // Create metadata with all required fields
+      toast.loading('Images uploaded', {
+        description: 'Preparing metadata...',
+      });
+
+      // Create and upload metadata
       const metadata = {
         name: propertyData.name,
         description: propertyData.description,
@@ -240,13 +271,17 @@ export default function TokenizePage() {
 
       const metadataUri = await uploadMetadata(metadata);
 
+      toast.loading('Metadata uploaded', {
+        description: 'Preparing contract interaction...',
+      });
+
       // Prepare contract parameters
       const tokenIds = tokens.map((t) => BigInt(t.id));
       const prices = tokens.map((t) => parseEther(t.price));
       const supplies = tokens.map((t) => BigInt(t.supply));
       const startTimestamp = BigInt(Math.floor(new Date(startTime).getTime() / 1000));
 
-      // Call smart contract
+      // Simulate contract interaction
       const { request } = await publicClient.simulateContract({
         address: FACTORY_ADDRESS as `0x${string}`,
         abi: BlockEstateFactoryABI.abi,
@@ -262,11 +297,17 @@ export default function TokenizePage() {
         account: address,
       });
 
+      toast.loading('Contract prepared', {
+        description: 'Please confirm the transaction in your wallet...',
+      });
+
       const hash = await walletClient.writeContract(request);
-      console.log('Transaction hash:', hash);
+
+      toast.loading('Transaction submitted', {
+        description: 'Waiting for confirmation...',
+      });
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      console.log('Transaction receipt:', receipt);
 
       // Look for PropertyTokenized event
       const event = receipt.logs.find((log) => {
@@ -287,6 +328,10 @@ export default function TokenizePage() {
       }
 
       const estateAddress = event.topics[1] as `0x${string}`;
+
+      toast.loading('Transaction confirmed', {
+        description: 'Saving property details...',
+      });
 
       // Save to Supabase
       const { data, error: dbError } = await supabase
@@ -326,10 +371,18 @@ export default function TokenizePage() {
         throw new Error('Failed to save token data');
       }
 
+      toast.success('Property tokenized successfully!', {
+        description: 'Redirecting to property page...',
+      });
+
       router.push(`/properties/${estateAddress}`);
     } catch (err) {
       console.error('Error tokenizing property:', err);
-      setError(err instanceof Error ? err.message : 'Failed to tokenize property');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to tokenize property';
+      toast.error('Tokenization failed', {
+        description: errorMessage,
+      });
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -707,17 +760,21 @@ export default function TokenizePage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <label htmlFor="quoteAsset" className="block text-sm font-medium text-gray-700">
-              Quote Asset Address (USDT) <span className="text-red-500">*</span>
+              Quote Asset Address (BUSD) <span className="text-red-500">*</span>
             </label>
             <input
               id="quoteAsset"
               type="text"
               value={quoteAsset}
               onChange={(e) => setQuoteAsset(e.target.value)}
-              placeholder="USDT contract address"
+              placeholder="BUSD contract address"
               className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
               required
             />
+            <p className="text-xs text-gray-500">
+              Default: Test BUSD ({DEFAULT_TBUSD_ADDRESS.slice(0, 6)}...
+              {DEFAULT_TBUSD_ADDRESS.slice(-4)})
+            </p>
           </div>
 
           <div className="space-y-2">

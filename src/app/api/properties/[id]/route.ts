@@ -1,8 +1,6 @@
 import type { NextRequest } from 'next/server';
 
-import type { Property } from '@/types/property';
-
-import { mockProperties } from '../../properties/data';
+import { getPropertyById } from '@/lib/supabase/queries';
 
 type Props = {
   params: Promise<{
@@ -12,10 +10,10 @@ type Props = {
 
 export async function GET(request: NextRequest, props: Props) {
   const params = await props.params;
-  const id = Number(params.id);
+  const id = params.id;
 
   try {
-    const property = mockProperties.find((p: Property) => p.id === id);
+    const property = await getPropertyById(id);
 
     if (!property) {
       return new Response('Property not found', { status: 404 });

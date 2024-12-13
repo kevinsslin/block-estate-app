@@ -1,9 +1,10 @@
-import { mockProperties } from './data';
+import { getProperties } from '@/lib/supabase/queries';
 
 // GET /api/properties - Get all properties
 export async function GET() {
   try {
-    return Response.json(mockProperties);
+    const properties = await getProperties();
+    return Response.json(properties);
   } catch (error) {
     console.error('Error in GET /api/properties:', error);
     return new Response(

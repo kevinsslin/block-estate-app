@@ -11,7 +11,7 @@ export const CHAIN_NAMES = {
 } as const;
 
 export const RPC_URLS = {
-  [SUPPORTED_CHAINS.BSC_TESTNET]: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
+  [SUPPORTED_CHAINS.BSC_TESTNET]: 'https://bsc-testnet.blockpi.network/v1/rpc/private',
 } as const;
 
 export const BLOCK_EXPLORERS = {

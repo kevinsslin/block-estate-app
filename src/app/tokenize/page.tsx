@@ -15,7 +15,7 @@ import { BlockEstateFactoryABI } from '@/contracts/abis';
 
 // Constants
 const FACTORY_ADDRESS = process.env.NEXT_PUBLIC_FACTORY_ADDRESS;
-const DEFAULT_TBUSD_ADDRESS = process.env.NEXT_PUBLIC_DEFAULT_BUSD_ADDRESS;
+const DEFAULT_TBUSD_ADDRESS = '0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814';
 
 // Constants for dropdown options
 const PROPERTY_TYPES = ['Apartment', 'House', 'Villa', 'Commercial', 'Land', 'Other'] as const;

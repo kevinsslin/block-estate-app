@@ -10,7 +10,6 @@ import {
   useReadContract,
   useSimulateContract,
   useWriteContract,
-  useWaitForTransactionReceipt,
 } from 'wagmi';
 
 import { PropertyStats } from '@/components/PropertyStats';
@@ -29,13 +28,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import type { PropertyWithTokens } from '@/lib/supabase/types';
+import { incrementTokenSupply } from '@/lib/supabase/queries';
 import BlockEstateABI from '@/contracts/abis/BlockEstate.json';
 
 interface PropertyDetailProps {
   property: PropertyWithTokens;
 }
 
-const DEFAULT_TBUSD_ADDRESS = '0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814';
+// const DEFAULT_TBUSD_ADDRESS = '0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814';
+const DEFAULT_TBUSD_ADDRESS = '0x2472FD99BD114Ff7EcA5005C063E21db37Bb5575';
 
 export function PropertyDetail({ property }: PropertyDetailProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -65,6 +66,7 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
 
   // Get the first token for this property
   const token = property.tokens[0];
+  console.log('Property token:', token);
 
   // Calculate values based on token
   const price = token ? Number(token.price) || 0 : 0;
@@ -84,27 +86,22 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
     watch: true,
   });
 
+  // Get BUSD allowance
+  const { data: busdAllowance } = useReadContract({
+    address: quoteAssetAddress as `0x${string}`,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: [address as `0x${string}`, property.contract_address as `0x${string}`],
+    enabled: Boolean(address) && Boolean(property.contract_address),
+    watch: true,
+  });
+
   // Format contract address with proper null checks
   const formattedContractAddress = property?.contract_address
     ? property.contract_address.startsWith('0x')
       ? `0x${property.contract_address.slice(2).replace(/^0+/, '')}`
       : `0x${property.contract_address.replace(/^0+/, '')}`
     : undefined;
-
-  // Prepare BUSD approval
-  const { data: approveData } = useSimulateContract(
-    address && tokenAmount > 0 && actualBUSDAmount > 0 && formattedContractAddress
-      ? {
-          address: quoteAssetAddress as `0x${string}`,
-          abi: erc20Abi,
-          functionName: 'approve',
-          args: [
-            formattedContractAddress as `0x${string}`,
-            parseEther(actualBUSDAmount.toString() || '0'),
-          ],
-        }
-      : undefined
-  );
 
   // Prepare mint transaction
   const { data: mintData } = useSimulateContract(
@@ -120,189 +117,106 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
 
   // Write contract hooks
   const { writeContractAsync: writeContract } = useWriteContract();
-  const [transactionHash, setTransactionHash] = useState<string | null>(null);
 
-  // Wait for transaction confirmation with timeout
-  const { isSuccess: isApproved } = useWaitForTransactionReceipt({
-    hash: transactionHash
-  });
-  
-const handleInvest = async () => {
-  console.time('Investment process');
-
-  try {
-    if (!formattedContractAddress) {
-      toast.error('Invalid contract address', {
-        description: 'The property contract address is not properly configured',
-      });
+  const handleInvest = async () => {
+    if (!address || !formattedContractAddress || !token) {
+      toast.error('Please connect your wallet first');
       return;
     }
 
-    if (!address) {
-      toast.error('Wallet not connected', {
-        description: 'Please connect your wallet to invest in this property',
-      });
-      return;
-    }
+    const toastId = toast.loading('Processing investment...');
+    console.time('Investment process');
 
-    const toastId = toast.loading('Preparing transaction...', {
-      description: `Approving ${actualBUSDAmount.toLocaleString()} BUSD`,
-    });
-
-    console.log('=== Investment Details ===');
-    console.log('Contract Address:', formattedContractAddress);
-    console.log('BUSD Address:', quoteAssetAddress);
-    console.log('User Address:', address);
-    console.log('Amount:', actualBUSDAmount.toString(), 'BUSD');
-    console.log('Token Amount:', tokenAmount);
-
-    console.time('Balance check');
-    const investmentAmountBN = parseEther(actualBUSDAmount.toString() || '0');
-    const userBalance = busdBalance || BigInt(0);
-    if (userBalance < investmentAmountBN) {
-      toast.error('Insufficient BUSD balance', {
-        description: `You need ${actualBUSDAmount.toLocaleString()} BUSD to make this investment`,
-      });
-      return;
-    }
-    console.timeEnd('Balance check');
-
-    if (!tokenAmount || tokenAmount <= 0) {
-      toast.error('Invalid investment amount', {
-        description: `Minimum investment amount is ${price.toLocaleString()} BUSD`,
-      });
-      return;
-    }
-
-    if (tokenAmount + currentSupply > maxSupply) {
-      toast.error('Exceeds available supply', {
-        description: `Only ${maxSupply - currentSupply} tokens available for purchase`,
-      });
-      return;
-    }
-
-    console.time('Approval preparation');
-    if (!approveData?.request) {
-      console.error('Approval simulation failed:', {
-        hasApproveData: !!approveData,
-        contractAddress: formattedContractAddress,
-        amount: actualBUSDAmount,
-      });
-      throw new Error('Failed to prepare approval transaction');
-    }
-    console.timeEnd('Approval preparation');
-
-    console.log(`
-=== Approval Transaction ===
-Address: ${approveData.request.address}
-Function: ${approveData.request.functionName}
-Spender: ${approveData.request.args[0]}
-Amount: ${approveData.request.args[1].toString()} wei
-Chain ID: ${approveData.request.chainId}
-    `);
-
-    console.time('Approval transaction');
     try {
-      console.log(`
-=== Sending Approval Transaction ===
-BUSD Address: ${approveData.request.address}
-Spender: ${approveData.request.args[0]}
-Amount: ${approveData.request.args[1].toString()} wei
-      `);
+      const requiredAmount = BigInt(actualBUSDAmount * 10**18); // Convert to wei
+      
+      console.log('=== BUSD Checks ===');
+      console.log('BUSD Balance:', busdBalance?.toString());
+      const myBalance = busdBalance ? busdBalance : 0;
+      console.log('Current allowance:', busdAllowance?.toString());
+      console.log('Required amount:', requiredAmount.toString());
+      console.log('Has sufficient balance:', busdBalance !== undefined && busdBalance >= requiredAmount);
+      console.log('Has sufficient allowance:', busdAllowance !== undefined && busdAllowance >= requiredAmount);
+      
+      // Check BUSD balance first
+      if (busdBalance === undefined || myBalance < requiredAmount) {
+        throw new Error(`Insufficient BUSD balance. You need ${(actualBUSDAmount).toLocaleString()} BUSD`);
+      }
+      
+      // Then check if we have enough allowance
+      if (busdAllowance === undefined || myBalance < requiredAmount) {
+        console.log('Need to approve BUSD first');
+        toast.loading('Approving BUSD...', { id: toastId });
+        
+        // Approve BUSD spending
+        const hash = await writeContract({
+          address: quoteAssetAddress as `0x${string}`,
+          abi: erc20Abi,
+          functionName: 'approve',
+          args: [formattedContractAddress, requiredAmount],
+        });
 
-      const hash = await writeContract({
-        ...approveData.request,
-        gas: BigInt(100000), // Explicitly set gas limit
-      });
-
-      setTransactionHash(hash);
-
-      console.log(`
-=== Transaction Submitted ===
-Hash: ${hash}
-Waiting for confirmation...
-      `);
-
-      if (!isApproved) {
-        throw new Error('Approval transaction failed or timed out');
+        console.log('Approval transaction submitted:', hash);
+        toast.loading('Waiting for approval confirmation...', { id: toastId });
+        
+        // Wait for approval transaction to be mined
+        // The frontend will automatically update the allowance through the useReadContract hook
       }
 
-      console.log('=== Approval Confirmed ===');
-    } catch (error) {
-      console.error('Approval transaction error:', error);
-      toast.error('Approval transaction failed', {
-        description: error instanceof Error ? error.message : 'Please try again later',
-        id: toastId,
-        duration: 5000,
-      });
-      throw error;
-    }
-    console.timeEnd('Approval transaction');
+      // Check allowance again after approval
+      if (myBalance === undefined || myBalance < requiredAmount) {
+        throw new Error('Insufficient allowance. Please try again.');
+      }
 
-    toast.loading('Approval successful', {
-      description: 'Preparing to purchase tokens...',
-      id: toastId,
-    });
+      console.time('Mint transaction');
+      toast.loading('Preparing mint transaction...', { id: toastId });
 
-    console.time('Mint preparation');
-    if (!mintData?.request) {
-      console.error('Mint simulation failed:', {
-        hasMintData: !!mintData,
-        contractAddress: formattedContractAddress,
-        tokenId: token?.token_id,
-        amount: tokenAmount,
-      });
-      throw new Error('Failed to prepare mint transaction');
-    }
-    console.timeEnd('Mint preparation');
+      // Prepare mint transaction parameters
+      const mintParams = {
+        address: formattedContractAddress as `0x${string}`,
+        abi: BlockEstateABI.abi,
+        functionName: 'mint',
+        args: [
+          address as `0x${string}`, // to: address of the buyer
+          BigInt(token.token_id), // id: token ID to mint
+          BigInt(tokenAmount), // amount: number of tokens to mint
+        ],
+        value: BigInt(0), // no ETH sent since we're using BUSD
+      };
 
-    console.log(`
-=== Mint Transaction ===
-Address: ${mintData.request.address}
-Function: ${mintData.request.functionName}
-Token ID: ${mintData.request.args[1]}
-Amount: ${mintData.request.args[2]}
-Chain ID: ${mintData.request.chainId}
-    `);
-
-    console.time('Mint transaction');
-    try {
-      const hash = await writeContract(mintData.request);
+      console.log('=== Mint Parameters ===', mintParams);
+      
+      const mintHash = await writeContract(mintParams);
+      
       console.log(`
-=== Transaction Submitted ===
-Hash: ${hash}
-Waiting for confirmation...
+=== Mint Transaction Submitted ===
+Hash: ${mintHash}
       `);
-    } catch (error) {
-      console.error('Mint transaction error:', error);
-      toast.error('Mint transaction failed', {
-        description: error instanceof Error ? error.message : 'Please try again later',
+
+      // Transaction submitted successfully
+      toast.success('Transaction submitted!', {
         id: toastId,
-        duration: 5000,
+        description: `Hash: ${mintHash}`,
       });
-      throw error;
+
+      // Close dialog and reset form
+      setIsDialogOpen(false);
+      setInvestmentAmount('');
+
+      // Update the current supply in the database
+      try {
+        console.log('Attempting to update supply for token:', token);
+        await incrementTokenSupply(token.token_id);
+      } catch (updateError) {
+        console.error('Failed to update supply:', updateError);
+      }
+
+    } catch (error) {
+      console.error('Investment error:', error);
+      setIsDialogOpen(false);
     }
-    console.timeEnd('Mint transaction');
+  };
 
-    console.timeEnd('Investment process');
-    toast.success('Investment successful!', {
-      description: `Successfully purchased ${tokenAmount} tokens for ${actualBUSDAmount.toLocaleString()} BUSD`,
-      id: toastId,
-      duration: 6000,
-    });
-
-    setIsDialogOpen(false);
-    setInvestmentAmount('');
-  } catch (error) {
-    console.error('Transaction error:', error);
-    toast.error('Transaction failed', {
-      description: error instanceof Error ? error.message : 'Please try again later',
-      id: toastId,
-      duration: 5000,
-    });
-    throw error;
-  }
-};
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const numValue = Number(value);

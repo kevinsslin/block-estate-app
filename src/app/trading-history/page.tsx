@@ -11,7 +11,7 @@ import {
 const tradingHistory = [
   {
     id: 1,
-    date: '2023-05-01',
+    date: '2024-11-11',
     tokenId: 'LUXY-001',
     type: 'Buy',
     amount: 100,
@@ -20,7 +20,7 @@ const tradingHistory = [
   },
   {
     id: 2,
-    date: '2023-05-15',
+    date: '2024-11-30',
     tokenId: 'COMS-002',
     type: 'Buy',
     amount: 500,
@@ -29,7 +29,7 @@ const tradingHistory = [
   },
   {
     id: 3,
-    date: '2023-06-01',
+    date: '2024-12-02',
     tokenId: 'BEACH-003',
     type: 'Buy',
     amount: 50,
@@ -38,12 +38,21 @@ const tradingHistory = [
   },
   {
     id: 4,
-    date: '2023-06-15',
+    date: '2024-12-12',
     tokenId: 'LUXY-001',
     type: 'Sell',
     amount: 50,
     price: 55,
     total: 2750,
+  },
+  {
+    id: 5,
+    date: '2024-12-14',
+    tokenId: 'TBW',
+    type: 'Buy',
+    amount: 10,
+    price: 10,
+    total: 100,
   },
 ];
 

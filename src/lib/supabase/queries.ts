@@ -87,3 +87,24 @@ export async function searchProperties(searchTerm: string): Promise<PropertyWith
     tokens: tokens.filter((token) => token.property_id === property.id),
   }));
 }
+
+export async function incrementTokenSupply(tokenId: number) {
+  // First get the current supply
+  const { data: currentData, error: fetchError } = await supabase
+    .from('property_tokens')
+    .select('current_supply')
+    .eq('token_id', tokenId)
+    .single();
+
+  console.log('currentData', currentData);
+  if (fetchError) throw fetchError;
+
+  // Then increment it
+  const { error: updateError } = await supabase
+    .from('property_tokens')
+    .update({ current_supply: currentData?.current_supply + 1 })
+    .eq('token_id', tokenId)
+    .select();
+
+  if (updateError) throw updateError;
+}

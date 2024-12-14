@@ -16,7 +16,7 @@ export const mockProperties: Property[] = [
       'Experience urban living at its finest with this luxurious downtown apartment. Featuring stunning city views, high-end finishes, and access to premium amenities.',
     tokensSold: 7500,
     annualReturn: 8.5,
-    lastValuation: '2023-05-15',
+    lastValuation: '2024-11-15',
   },
   {
     id: 2,
@@ -32,7 +32,7 @@ export const mockProperties: Property[] = [
       "Prime commercial office space in the heart of San Francisco's business district. Ideal for startups or established companies looking for a prestigious address.",
     tokensSold: 15000,
     annualReturn: 7.2,
-    lastValuation: '2023-06-01',
+    lastValuation: '2024-12-07',
   },
   {
     id: 3,
@@ -48,6 +48,6 @@ export const mockProperties: Property[] = [
       "Escape to this stunning beachfront villa in Miami. With direct beach access, a private pool, and luxurious interiors, it's the perfect vacation home or investment property.",
     tokensSold: 10000,
     annualReturn: 9.1,
-    lastValuation: '2023-05-30',
+    lastValuation: '2024-12-11',
   },
 ];

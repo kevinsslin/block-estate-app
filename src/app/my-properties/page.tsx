@@ -7,31 +7,31 @@ import { Progress } from '@/components/ui/progress';
 
 const myProperties = [
   {
-    id: 1,
-    name: 'Luxury Apartment in Downtown',
-    tokenId: 'LUXY-001',
+    id: 2,
+    name: 'Wen Hu Bao Threads',
+    tokenId: 'WHBT-001',
     tokensOwned: 100,
     totalTokens: 10000,
     currentValue: 5500,
     purchaseValue: 5000,
   },
   {
-    id: 2,
+    id: 4,
+    name: 'Taipei',
+    tokenId: 'BEACH-003',
+    tokensOwned: 1,
+    totalTokens: 100,
+    currentValue: 4750,
+    purchaseValue: 5000,
+  },
+  {
+    id: 3,
     name: 'Commercial Office Space',
     tokenId: 'COMS-002',
     tokensOwned: 500,
     totalTokens: 20000,
     currentValue: 55000,
     purchaseValue: 50000,
-  },
-  {
-    id: 3,
-    name: 'Beachfront Villa',
-    tokenId: 'BEACH-003',
-    tokensOwned: 50,
-    totalTokens: 15000,
-    currentValue: 4750,
-    purchaseValue: 5000,
   },
 ];
 

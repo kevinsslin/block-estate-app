@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Calendar, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,7 +10,7 @@ import {
   useReadContract,
   useSimulateContract,
   useWriteContract,
-  waitForTransactionReceipt,
+  useWaitForTransactionReceipt,
 } from 'wagmi';
 
 import { PropertyStats } from '@/components/PropertyStats';
@@ -40,7 +40,25 @@ const DEFAULT_TBUSD_ADDRESS = '0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814';
 export function PropertyDetail({ property }: PropertyDetailProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [investmentAmount, setInvestmentAmount] = useState('');
+  const [metadata, setMetadata] = useState<{ description: string } | null>(null);
   const { address } = useAccount();
+
+  // Fetch metadata when component mounts
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const response = await fetch(property.metadata_uri);
+        const data = await response.json();
+        setMetadata(data);
+      } catch (error) {
+        console.error('Failed to fetch metadata:', error);
+      }
+    };
+    
+    if (property.metadata_uri) {
+      fetchMetadata();
+    }
+  }, [property.metadata_uri]);
 
   // Use default tBUSD address if quote_asset_address is not available
   const quoteAssetAddress = property.quote_asset_address || DEFAULT_TBUSD_ADDRESS;
@@ -102,188 +120,189 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
 
   // Write contract hooks
   const { writeContractAsync: writeContract } = useWriteContract();
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
 
-  const handleInvest = async () => {
-    console.time('Investment process');
+  // Wait for transaction confirmation with timeout
+  const { isSuccess: isApproved } = useWaitForTransactionReceipt({
+    hash: transactionHash
+  });
+  
+const handleInvest = async () => {
+  console.time('Investment process');
 
-    try {
-      if (!formattedContractAddress) {
-        toast.error('Invalid contract address', {
-          description: 'The property contract address is not properly configured',
-        });
-        return;
-      }
-
-      if (!address) {
-        toast.error('Wallet not connected', {
-          description: 'Please connect your wallet to invest in this property',
-        });
-        return;
-      }
-
-      const toastId = toast.loading('Preparing transaction...', {
-        description: `Approving ${actualBUSDAmount.toLocaleString()} BUSD`,
+  try {
+    if (!formattedContractAddress) {
+      toast.error('Invalid contract address', {
+        description: 'The property contract address is not properly configured',
       });
+      return;
+    }
 
-      console.log('=== Investment Details ===');
-      console.log('Contract Address:', formattedContractAddress);
-      console.log('BUSD Address:', quoteAssetAddress);
-      console.log('User Address:', address);
-      console.log('Amount:', actualBUSDAmount.toString(), 'BUSD');
-      console.log('Token Amount:', tokenAmount);
+    if (!address) {
+      toast.error('Wallet not connected', {
+        description: 'Please connect your wallet to invest in this property',
+      });
+      return;
+    }
 
-      console.time('Balance check');
-      const investmentAmountBN = parseEther(actualBUSDAmount.toString() || '0');
-      const userBalance = busdBalance || BigInt(0);
-      if (userBalance < investmentAmountBN) {
-        toast.error('Insufficient BUSD balance', {
-          description: `You need ${actualBUSDAmount.toLocaleString()} BUSD to make this investment`,
-        });
-        return;
-      }
-      console.timeEnd('Balance check');
+    const toastId = toast.loading('Preparing transaction...', {
+      description: `Approving ${actualBUSDAmount.toLocaleString()} BUSD`,
+    });
 
-      if (!tokenAmount || tokenAmount <= 0) {
-        toast.error('Invalid investment amount', {
-          description: `Minimum investment amount is ${price.toLocaleString()} BUSD`,
-        });
-        return;
-      }
+    console.log('=== Investment Details ===');
+    console.log('Contract Address:', formattedContractAddress);
+    console.log('BUSD Address:', quoteAssetAddress);
+    console.log('User Address:', address);
+    console.log('Amount:', actualBUSDAmount.toString(), 'BUSD');
+    console.log('Token Amount:', tokenAmount);
 
-      if (tokenAmount + currentSupply > maxSupply) {
-        toast.error('Exceeds available supply', {
-          description: `Only ${maxSupply - currentSupply} tokens available for purchase`,
-        });
-        return;
-      }
+    console.time('Balance check');
+    const investmentAmountBN = parseEther(actualBUSDAmount.toString() || '0');
+    const userBalance = busdBalance || BigInt(0);
+    if (userBalance < investmentAmountBN) {
+      toast.error('Insufficient BUSD balance', {
+        description: `You need ${actualBUSDAmount.toLocaleString()} BUSD to make this investment`,
+      });
+      return;
+    }
+    console.timeEnd('Balance check');
 
-      console.time('Approval preparation');
-      if (!approveData?.request) {
-        console.error('Approval simulation failed:', {
-          hasApproveData: !!approveData,
-          contractAddress: formattedContractAddress,
-          amount: actualBUSDAmount,
-        });
-        throw new Error('Failed to prepare approval transaction');
-      }
-      console.timeEnd('Approval preparation');
+    if (!tokenAmount || tokenAmount <= 0) {
+      toast.error('Invalid investment amount', {
+        description: `Minimum investment amount is ${price.toLocaleString()} BUSD`,
+      });
+      return;
+    }
 
-      console.log(`
+    if (tokenAmount + currentSupply > maxSupply) {
+      toast.error('Exceeds available supply', {
+        description: `Only ${maxSupply - currentSupply} tokens available for purchase`,
+      });
+      return;
+    }
+
+    console.time('Approval preparation');
+    if (!approveData?.request) {
+      console.error('Approval simulation failed:', {
+        hasApproveData: !!approveData,
+        contractAddress: formattedContractAddress,
+        amount: actualBUSDAmount,
+      });
+      throw new Error('Failed to prepare approval transaction');
+    }
+    console.timeEnd('Approval preparation');
+
+    console.log(`
 === Approval Transaction ===
 Address: ${approveData.request.address}
 Function: ${approveData.request.functionName}
 Spender: ${approveData.request.args[0]}
 Amount: ${approveData.request.args[1].toString()} wei
 Chain ID: ${approveData.request.chainId}
-      `);
+    `);
 
-      console.time('Approval transaction');
-      try {
-        console.log(`
+    console.time('Approval transaction');
+    try {
+      console.log(`
 === Sending Approval Transaction ===
 BUSD Address: ${approveData.request.address}
 Spender: ${approveData.request.args[0]}
 Amount: ${approveData.request.args[1].toString()} wei
-        `);
-
-        const hash = await writeContract({
-          ...approveData.request,
-          gas: BigInt(100000), // Explicitly set gas limit
-        });
-
-        console.log(`
-=== Transaction Submitted ===
-Hash: ${hash}
-Waiting for confirmation...
-        `);
-
-        // Wait for transaction confirmation with timeout
-        const { isSuccess: isApproved } = await waitForTransactionReceipt({
-          hash,
-          timeout: 30_000, // 30 second timeout
-        });
-
-        if (!isApproved) {
-          throw new Error('Approval transaction failed or timed out');
-        }
-
-        console.log('=== Approval Confirmed ===');
-      } catch (error) {
-        console.error('Approval transaction error:', error);
-        toast.error('Approval transaction failed', {
-          description: error instanceof Error ? error.message : 'Please try again later',
-          id: toastId,
-          duration: 5000,
-        });
-        throw error;
-      }
-      console.timeEnd('Approval transaction');
-
-      toast.loading('Approval successful', {
-        description: 'Preparing to purchase tokens...',
-        id: toastId,
-      });
-
-      console.time('Mint preparation');
-      if (!mintData?.request) {
-        console.error('Mint simulation failed:', {
-          hasMintData: !!mintData,
-          contractAddress: formattedContractAddress,
-          tokenId: token?.token_id,
-          amount: tokenAmount,
-        });
-        throw new Error('Failed to prepare mint transaction');
-      }
-      console.timeEnd('Mint preparation');
-
-      console.log(`
-=== Mint Transaction ===
-Address: ${mintData.request.address}
-Function: ${mintData.request.functionName}
-Token ID: ${mintData.request.args[1]}
-Amount: ${mintData.request.args[2]}
-Chain ID: ${mintData.request.chainId}
       `);
 
-      console.time('Mint transaction');
-      try {
-        const hash = await writeContract(mintData.request);
-        console.log(`
+      const hash = await writeContract({
+        ...approveData.request,
+        gas: BigInt(100000), // Explicitly set gas limit
+      });
+
+      setTransactionHash(hash);
+
+      console.log(`
 === Transaction Submitted ===
 Hash: ${hash}
 Waiting for confirmation...
-        `);
-      } catch (error) {
-        console.error('Mint transaction error:', error);
-        toast.error('Mint transaction failed', {
-          description: error instanceof Error ? error.message : 'Please try again later',
-          id: toastId,
-          duration: 5000,
-        });
-        throw error;
+      `);
+
+      if (!isApproved) {
+        throw new Error('Approval transaction failed or timed out');
       }
-      console.timeEnd('Mint transaction');
 
-      console.timeEnd('Investment process');
-      toast.success('Investment successful!', {
-        description: `Successfully purchased ${tokenAmount} tokens for ${actualBUSDAmount.toLocaleString()} BUSD`,
-        id: toastId,
-        duration: 6000,
-      });
-
-      setIsDialogOpen(false);
-      setInvestmentAmount('');
+      console.log('=== Approval Confirmed ===');
     } catch (error) {
-      console.error('Transaction error:', error);
-      toast.error('Transaction failed', {
+      console.error('Approval transaction error:', error);
+      toast.error('Approval transaction failed', {
         description: error instanceof Error ? error.message : 'Please try again later',
         id: toastId,
         duration: 5000,
       });
       throw error;
     }
-  };
+    console.timeEnd('Approval transaction');
 
+    toast.loading('Approval successful', {
+      description: 'Preparing to purchase tokens...',
+      id: toastId,
+    });
+
+    console.time('Mint preparation');
+    if (!mintData?.request) {
+      console.error('Mint simulation failed:', {
+        hasMintData: !!mintData,
+        contractAddress: formattedContractAddress,
+        tokenId: token?.token_id,
+        amount: tokenAmount,
+      });
+      throw new Error('Failed to prepare mint transaction');
+    }
+    console.timeEnd('Mint preparation');
+
+    console.log(`
+=== Mint Transaction ===
+Address: ${mintData.request.address}
+Function: ${mintData.request.functionName}
+Token ID: ${mintData.request.args[1]}
+Amount: ${mintData.request.args[2]}
+Chain ID: ${mintData.request.chainId}
+    `);
+
+    console.time('Mint transaction');
+    try {
+      const hash = await writeContract(mintData.request);
+      console.log(`
+=== Transaction Submitted ===
+Hash: ${hash}
+Waiting for confirmation...
+      `);
+    } catch (error) {
+      console.error('Mint transaction error:', error);
+      toast.error('Mint transaction failed', {
+        description: error instanceof Error ? error.message : 'Please try again later',
+        id: toastId,
+        duration: 5000,
+      });
+      throw error;
+    }
+    console.timeEnd('Mint transaction');
+
+    console.timeEnd('Investment process');
+    toast.success('Investment successful!', {
+      description: `Successfully purchased ${tokenAmount} tokens for ${actualBUSDAmount.toLocaleString()} BUSD`,
+      id: toastId,
+      duration: 6000,
+    });
+
+    setIsDialogOpen(false);
+    setInvestmentAmount('');
+  } catch (error) {
+    console.error('Transaction error:', error);
+    toast.error('Transaction failed', {
+      description: error instanceof Error ? error.message : 'Please try again later',
+      id: toastId,
+      duration: 5000,
+    });
+    throw error;
+  }
+};
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const numValue = Number(value);
@@ -326,15 +345,6 @@ Waiting for confirmation...
     setInvestmentAmount(value);
   };
 
-  // Try to parse metadata if it's a JSON string
-  let description = property.metadata_uri;
-  try {
-    const metadata = JSON.parse(property.metadata_uri);
-    description = metadata.description || property.metadata_uri;
-  } catch {
-    // If parsing fails, use the metadata_uri as is
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="container mx-auto px-4 py-6 sm:py-12">
@@ -359,7 +369,7 @@ Waiting for confirmation...
             <Badge className="mb-3 sm:mb-4">{token.token_type}</Badge>
             <div className="mb-4 text-sm text-gray-600 sm:mb-6 sm:text-base">
               <h2 className="mb-2 font-semibold">Total Value: ${totalPrice.toLocaleString()}</h2>
-              <p>{description}</p>
+              <p className="whitespace-pre-line">{metadata?.description || 'Loading property description...'}</p>
             </div>
 
             <PropertyStats token={token} />
@@ -386,8 +396,12 @@ Waiting for confirmation...
               </div>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button size="lg" className="w-full sm:w-auto">
-                    Invest Now
+                  <Button 
+                    size="lg" 
+                    className="w-full sm:w-auto"
+                    disabled={new Date() < new Date(property.start_timestamp)}
+                  >
+                    {new Date() < new Date(property.start_timestamp) ? 'Coming Soon' : 'Invest Now'}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">

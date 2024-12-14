@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 
 import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { LoadingState } from '@/components/LoadingState';
@@ -37,6 +38,8 @@ export function PropertyListingsSection() {
     error,
     execute,
   } = useAsync<Property[]>(getAllProperties, true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const propertiesPerPage = 6;
 
   if (loading) {
     return (
@@ -76,9 +79,14 @@ export function PropertyListingsSection() {
     );
   }
 
+  // Calculate pagination
+  const totalPages = Math.ceil(properties.length / propertiesPerPage);
+  const startIndex = (currentPage - 1) * propertiesPerPage;
+  const visibleProperties = properties.slice(startIndex, startIndex + propertiesPerPage);
+
   return (
     <section style={{ padding: '5rem 0' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 1rem' }}>
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -101,16 +109,60 @@ export function PropertyListingsSection() {
           viewport={{ once: true }}
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '1rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1.5rem',
           }}
         >
-          {properties.map((property) => (
+          {visibleProperties.map((property) => (
             <motion.div key={property.id} variants={item} style={{ height: '100%' }}>
               <PropertyCard property={property} />
             </motion.div>
           ))}
         </motion.div>
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: '0.5rem', 
+            marginTop: '2rem' 
+          }}>
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              style={{
+                padding: '0.5rem 1rem',
+                border: '1px solid #e5e7eb',
+                borderRadius: '0.375rem',
+                backgroundColor: currentPage === 1 ? '#f3f4f6' : 'white',
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Previous
+            </button>
+            <span style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              padding: '0 1rem' 
+            }}>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              style={{
+                padding: '0.5rem 1rem',
+                border: '1px solid #e5e7eb',
+                borderRadius: '0.375rem',
+                backgroundColor: currentPage === totalPages ? '#f3f4f6' : 'white',
+                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

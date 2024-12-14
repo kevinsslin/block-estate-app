@@ -5,7 +5,13 @@ import Image from 'next/image';
 import { Calendar, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { erc20Abi, parseEther } from 'viem';
-import { useAccount, useReadContract, useSimulateContract, useWriteContract } from 'wagmi';
+import {
+  useAccount,
+  useReadContract,
+  useSimulateContract,
+  useWriteContract,
+  waitForTransactionReceipt,
+} from 'wagmi';
 
 import { PropertyStats } from '@/components/PropertyStats';
 import { Badge } from '@/components/ui/badge';
@@ -60,37 +66,54 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
     watch: true,
   });
 
-  // removing leading zeros
-  const formattedContractAddress = property.contract_address.startsWith('0x')
-    ? `0x${property.contract_address.slice(2).replace(/^0+/, '')}`
-    : `0x${property.contract_address.replace(/^0+/, '')}`;
+  // Format contract address with proper null checks
+  const formattedContractAddress = property?.contract_address
+    ? property.contract_address.startsWith('0x')
+      ? `0x${property.contract_address.slice(2).replace(/^0+/, '')}`
+      : `0x${property.contract_address.replace(/^0+/, '')}`
+    : undefined;
 
   // Prepare BUSD approval
-  const { data: approveData } = useSimulateContract({
-    address: quoteAssetAddress as `0x${string}`,
-    abi: erc20Abi,
-    functionName: 'approve',
-    args: [
-      formattedContractAddress as `0x${string}`,
-      parseEther(actualBUSDAmount.toString() || '0'),
-    ],
-    enabled: Boolean(address && tokenAmount > 0 && actualBUSDAmount > 0),
-  });
+  const { data: approveData } = useSimulateContract(
+    address && tokenAmount > 0 && actualBUSDAmount > 0 && formattedContractAddress
+      ? {
+          address: quoteAssetAddress as `0x${string}`,
+          abi: erc20Abi,
+          functionName: 'approve',
+          args: [
+            formattedContractAddress as `0x${string}`,
+            parseEther(actualBUSDAmount.toString() || '0'),
+          ],
+        }
+      : undefined
+  );
+
+  // Prepare mint transaction
+  const { data: mintData } = useSimulateContract(
+    address && tokenAmount > 0 && formattedContractAddress && actualBUSDAmount > 0
+      ? {
+          address: formattedContractAddress as `0x${string}`,
+          abi: BlockEstateABI.abi,
+          functionName: 'mint',
+          args: [address, token?.token_id || 0, tokenAmount],
+        }
+      : undefined
+  );
 
   // Write contract hooks
   const { writeContractAsync: writeContract } = useWriteContract();
 
-  // Prepare mint transaction
-  const { data: mintData } = useSimulateContract({
-    address: formattedContractAddress as `0x${string}`,
-    abi: BlockEstateABI.abi,
-    functionName: 'mint',
-    args: [address, token?.token_id || 0, tokenAmount],
-    enabled: Boolean(token && address && tokenAmount > 0),
-  });
-
   const handleInvest = async () => {
+    console.time('Investment process');
+
     try {
+      if (!formattedContractAddress) {
+        toast.error('Invalid contract address', {
+          description: 'The property contract address is not properly configured',
+        });
+        return;
+      }
+
       if (!address) {
         toast.error('Wallet not connected', {
           description: 'Please connect your wallet to invest in this property',
@@ -98,6 +121,18 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
         return;
       }
 
+      const toastId = toast.loading('Preparing transaction...', {
+        description: `Approving ${actualBUSDAmount.toLocaleString()} BUSD`,
+      });
+
+      console.log('=== Investment Details ===');
+      console.log('Contract Address:', formattedContractAddress);
+      console.log('BUSD Address:', quoteAssetAddress);
+      console.log('User Address:', address);
+      console.log('Amount:', actualBUSDAmount.toString(), 'BUSD');
+      console.log('Token Amount:', tokenAmount);
+
+      console.time('Balance check');
       const investmentAmountBN = parseEther(actualBUSDAmount.toString() || '0');
       const userBalance = busdBalance || BigInt(0);
       if (userBalance < investmentAmountBN) {
@@ -106,6 +141,7 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
         });
         return;
       }
+      console.timeEnd('Balance check');
 
       if (!tokenAmount || tokenAmount <= 0) {
         toast.error('Invalid investment amount', {
@@ -121,71 +157,130 @@ export function PropertyDetail({ property }: PropertyDetailProps) {
         return;
       }
 
-      // First approve BUSD spending
-      const formattedAmount = actualBUSDAmount.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+      console.time('Approval preparation');
+      if (!approveData?.request) {
+        console.error('Approval simulation failed:', {
+          hasApproveData: !!approveData,
+          contractAddress: formattedContractAddress,
+          amount: actualBUSDAmount,
+        });
+        throw new Error('Failed to prepare approval transaction');
+      }
+      console.timeEnd('Approval preparation');
 
-      const toastId = toast.loading('Preparing transaction...', {
-        description: `Approving ${formattedAmount} BUSD`,
-      });
+      console.log(`
+=== Approval Transaction ===
+Address: ${approveData.request.address}
+Function: ${approveData.request.functionName}
+Spender: ${approveData.request.args[0]}
+Amount: ${approveData.request.args[1].toString()} wei
+Chain ID: ${approveData.request.chainId}
+      `);
 
+      console.time('Approval transaction');
       try {
-        if (!approveData?.request) {
-          throw new Error('Failed to prepare approval transaction');
+        console.log(`
+=== Sending Approval Transaction ===
+BUSD Address: ${approveData.request.address}
+Spender: ${approveData.request.args[0]}
+Amount: ${approveData.request.args[1].toString()} wei
+        `);
+
+        const hash = await writeContract({
+          ...approveData.request,
+          gas: BigInt(100000), // Explicitly set gas limit
+        });
+
+        console.log(`
+=== Transaction Submitted ===
+Hash: ${hash}
+Waiting for confirmation...
+        `);
+
+        // Wait for transaction confirmation with timeout
+        const { isSuccess: isApproved } = await waitForTransactionReceipt({
+          hash,
+          timeout: 30_000, // 30 second timeout
+        });
+
+        if (!isApproved) {
+          throw new Error('Approval transaction failed or timed out');
         }
 
-        // Execute BUSD approval
-        await writeContract(approveData.request);
-
-        toast.loading('Approval successful', {
-          description: 'Preparing to purchase tokens...',
-          id: toastId,
-        });
-
-        if (!mintData?.request) {
-          throw new Error('Failed to prepare mint transaction');
-        }
-
-        // Execute token purchase
-        toast.loading('Transaction in progress', {
-          description: `Purchasing ${tokenAmount} tokens...`,
-          id: toastId,
-        });
-
-        await writeContract(mintData.request);
-
-        toast.success('Investment successful!', {
-          description: `Successfully purchased ${tokenAmount} tokens for ${formattedAmount} BUSD`,
-          id: toastId,
-          duration: 6000,
-        });
-
-        setIsDialogOpen(false);
-        setInvestmentAmount('');
+        console.log('=== Approval Confirmed ===');
       } catch (error) {
-        console.error('Transaction error:', error);
-        toast.error('Transaction failed', {
+        console.error('Approval transaction error:', error);
+        toast.error('Approval transaction failed', {
           description: error instanceof Error ? error.message : 'Please try again later',
           id: toastId,
           duration: 5000,
         });
         throw error;
       }
-    } catch (error) {
-      console.error('Investment error:', error);
-      if (error instanceof Error) {
-        toast.error('Investment failed', {
-          description: error.message,
-          duration: 5000,
+      console.timeEnd('Approval transaction');
+
+      toast.loading('Approval successful', {
+        description: 'Preparing to purchase tokens...',
+        id: toastId,
+      });
+
+      console.time('Mint preparation');
+      if (!mintData?.request) {
+        console.error('Mint simulation failed:', {
+          hasMintData: !!mintData,
+          contractAddress: formattedContractAddress,
+          tokenId: token?.token_id,
+          amount: tokenAmount,
         });
-      } else {
-        toast.error('Investment failed', {
-          description: 'An unexpected error occurred. Please try again.',
-          duration: 5000,
-        });
+        throw new Error('Failed to prepare mint transaction');
       }
+      console.timeEnd('Mint preparation');
+
+      console.log(`
+=== Mint Transaction ===
+Address: ${mintData.request.address}
+Function: ${mintData.request.functionName}
+Token ID: ${mintData.request.args[1]}
+Amount: ${mintData.request.args[2]}
+Chain ID: ${mintData.request.chainId}
+      `);
+
+      console.time('Mint transaction');
+      try {
+        const hash = await writeContract(mintData.request);
+        console.log(`
+=== Transaction Submitted ===
+Hash: ${hash}
+Waiting for confirmation...
+        `);
+      } catch (error) {
+        console.error('Mint transaction error:', error);
+        toast.error('Mint transaction failed', {
+          description: error instanceof Error ? error.message : 'Please try again later',
+          id: toastId,
+          duration: 5000,
+        });
+        throw error;
+      }
+      console.timeEnd('Mint transaction');
+
+      console.timeEnd('Investment process');
+      toast.success('Investment successful!', {
+        description: `Successfully purchased ${tokenAmount} tokens for ${actualBUSDAmount.toLocaleString()} BUSD`,
+        id: toastId,
+        duration: 6000,
+      });
+
+      setIsDialogOpen(false);
+      setInvestmentAmount('');
+    } catch (error) {
+      console.error('Transaction error:', error);
+      toast.error('Transaction failed', {
+        description: error instanceof Error ? error.message : 'Please try again later',
+        id: toastId,
+        duration: 5000,
+      });
+      throw error;
     }
   };
 

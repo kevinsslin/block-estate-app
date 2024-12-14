@@ -36,7 +36,7 @@ interface PropertyDetailProps {
 }
 
 // const DEFAULT_TBUSD_ADDRESS = '0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814';
-const DEFAULT_TBUSD_ADDRESS = '0x2472FD99BD114Ff7EcA5005C063E21db37Bb5575';
+const DEFAULT_TBUSD_ADDRESS = '0xf082c25fCF37da41486f5ba37cCb60Dae590b061';
 
 export function PropertyDetail({ property }: PropertyDetailProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);

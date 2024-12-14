@@ -60,6 +60,7 @@ export default function TokenizePage() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  // const { writeContractAsync: writeContract } = useWriteContract();
 
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -281,6 +282,24 @@ export default function TokenizePage() {
       const supplies = tokens.map((t) => BigInt(t.supply));
       const startTimestamp = BigInt(Math.floor(new Date(startTime).getTime() / 1000));
 
+      console.log('=== Tokenization Parameters ===');
+      console.log('Factory Address:', FACTORY_ADDRESS);
+      console.log('Quote Asset:', quoteAsset);
+      console.log(
+        'Token IDs:',
+        tokenIds.map((id) => id)
+      );
+      console.log(
+        'Prices:',
+        prices.map((p) => p)
+      );
+      console.log(
+        'Supplies:',
+        supplies.map((s) => s)
+      );
+      console.log('Start Time:', startTimestamp.toString());
+      console.log('Metadata URI:', metadataUri);
+
       // Simulate contract interaction
       const { request } = await publicClient.simulateContract({
         address: FACTORY_ADDRESS as `0x${string}`,
@@ -297,85 +316,159 @@ export default function TokenizePage() {
         account: address,
       });
 
-      toast.loading('Contract prepared', {
-        description: 'Please confirm the transaction in your wallet...',
-      });
+      console.log('Simulated contract interaction:', request);
 
-      const hash = await walletClient.writeContract(request);
+      if (!request) {
+        console.error('Failed to prepare tokenization request');
+        throw new Error('Failed to prepare tokenization request');
+      }
 
-      toast.loading('Transaction submitted', {
-        description: 'Waiting for confirmation...',
-      });
+      console.log('Request prepared, waiting for wallet confirmation...');
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      try {
+        console.log('Sending transaction...');
 
-      // Look for PropertyTokenized event
-      const event = receipt.logs.find((log) => {
-        try {
-          const decoded = decodeEventLog({
-            abi: BlockEstateFactoryABI.abi,
-            data: log.data,
-            topics: log.topics,
-          });
-          return decoded.eventName === 'PropertyTokenized';
-        } catch {
-          return false;
+        // Create a timeout promise
+        const timeout = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Transaction timed out after 30 seconds')), 50000);
+        });
+
+        // Race between the transaction and timeout
+        const hash = await Promise.race([
+          // writeContract(request),
+          walletClient.writeContract(request),
+          timeout,
+        ]);
+
+        if (!hash) {
+          throw new Error('Failed to get transaction hash');
         }
-      });
 
-      if (!event) {
-        throw new Error('Property tokenization failed: Event not found');
+        console.log('Transaction submitted:', hash);
+
+        toast.loading('Transaction submitted', {
+          description: 'Waiting for confirmation...',
+        });
+
+        // Add another timeout for transaction confirmation
+        const receipt = await Promise.race([
+          publicClient.waitForTransactionReceipt({
+            hash,
+            timeout: 40_000, // 1 minute timeout
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Transaction confirmation timed out')), 60000)
+          ),
+        ]);
+
+        if (receipt.status === 'reverted') {
+          console.error('Transaction reverted:', receipt);
+          throw new Error('Transaction was reverted by the blockchain');
+        }
+
+        console.log('Transaction confirmed:', receipt);
+
+        // Look for PropertyTokenized event
+        const event = receipt.logs.find((log) => {
+          try {
+            const decoded = decodeEventLog({
+              abi: BlockEstateFactoryABI.abi,
+              data: log.data,
+              topics: log.topics,
+            });
+            return decoded.eventName === 'PropertyTokenized';
+          } catch {
+            return false;
+          }
+        });
+
+        if (!event) {
+          console.error('PropertyTokenized event not found in receipt');
+          throw new Error('Failed to find PropertyTokenized event');
+        }
+
+        const decoded = decodeEventLog({
+          abi: BlockEstateFactoryABI.abi,
+          data: event.data,
+          topics: event.topics,
+        });
+
+        console.log('PropertyTokenized event:', decoded);
+
+        const estateAddress = decoded.args[0] as `0x${string}`;
+
+        toast.loading('Transaction confirmed', {
+          description: 'Saving property details...',
+        });
+
+        // Save to Supabase
+        const { data, error: dbError } = await supabase
+          .from('properties')
+          .insert({
+            address: propertyData.location,
+            metadata_uri: metadataUri,
+            image_url: imageUrls[0],
+            quote_asset: quoteAsset,
+            start_timestamp: new Date(startTime).toISOString(),
+            owner_address: address,
+            contract_address: estateAddress,
+            status: 'pending',
+          })
+          .select()
+          .single();
+
+        if (dbError) {
+          console.error('Database error:', dbError);
+          throw new Error('Failed to save property data');
+        }
+
+        // Save tokens
+        const { error: tokensError } = await supabase.from('property_tokens').insert(
+          tokens.map((token) => ({
+            property_id: data.id,
+            token_id: token.id,
+            price: token.price,
+            max_supply: token.supply,
+            token_type: token.type,
+            description: token.description,
+          }))
+        );
+
+        if (tokensError) {
+          console.error('Error saving tokens:', tokensError);
+          throw new Error('Failed to save token data');
+        }
+
+        toast.success('Property tokenized successfully!', {
+          description: 'Redirecting to property page...',
+        });
+
+        router.push(`/properties/${estateAddress}`);
+      } catch (err) {
+        console.error('Error tokenizing property:', err);
+        let errorMessage = 'Failed to tokenize property';
+
+        if (err instanceof Error) {
+          if (err.message.includes('timeout')) {
+            errorMessage = 'Transaction timed out. Please try again with higher gas fees.';
+          } else if (err.message.includes('rejected')) {
+            errorMessage = 'Transaction was rejected. Please check your wallet.';
+          } else if (err.message.includes('insufficient funds')) {
+            errorMessage = 'Insufficient funds for gas. Please add more BNB to your wallet.';
+          } else if (err.message.includes('NotWhitelistedSeller')) {
+            errorMessage = 'Your address is not whitelisted as a seller.';
+          } else {
+            errorMessage = err.message;
+          }
+        }
+
+        toast.error('Tokenization failed', {
+          description: errorMessage,
+        });
+        setError(errorMessage);
+      } finally {
+        setIsLoading(false);
       }
-
-      const estateAddress = event.topics[1] as `0x${string}`;
-
-      toast.loading('Transaction confirmed', {
-        description: 'Saving property details...',
-      });
-
-      // Save to Supabase
-      const { data, error: dbError } = await supabase
-        .from('properties')
-        .insert({
-          address: propertyData.location,
-          metadata_uri: metadataUri,
-          image_url: imageUrls[0],
-          quote_asset: quoteAsset,
-          start_timestamp: new Date(startTime).toISOString(),
-          owner_address: address,
-          contract_address: estateAddress,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        console.error('Database error:', dbError);
-        throw new Error('Failed to save property data');
-      }
-
-      // Save tokens
-      const { error: tokensError } = await supabase.from('property_tokens').insert(
-        tokens.map((token) => ({
-          property_id: data.id,
-          token_id: token.id,
-          price: token.price,
-          max_supply: token.supply,
-          token_type: token.type,
-          description: token.description,
-        }))
-      );
-
-      if (tokensError) {
-        console.error('Error saving tokens:', tokensError);
-        throw new Error('Failed to save token data');
-      }
-
-      toast.success('Property tokenized successfully!', {
-        description: 'Redirecting to property page...',
-      });
-
-      router.push(`/properties/${estateAddress}`);
     } catch (err) {
       console.error('Error tokenizing property:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to tokenize property';
